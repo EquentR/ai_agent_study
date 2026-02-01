@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE Chat 测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #6bebeb 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #76dfed 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        /* 聊天消息样式 */
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message-content {
+            display: inline-block;
+            max-width: 70%;
+            padding: 12px 10px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #77edf1 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e1e4e8;
+            border-bottom-left-radius: 4px;
+            text-align: left;
+        }
+
+        .message.system .message-content {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            font-size: 12px;
+            max-width: 90%;
+        }
+
+        /* 输入区域样式 */
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e4e8;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e1e4e8;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #questionInput:focus {
+            border-color: #66dfea;
+        }
+
+        #sendBtn {
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #69ddd0 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #sendBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #sendBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #06b6d4;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 滚动条美化 */
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面头部 -->
+        <div class="header">
+            <h1>🤖 SSE Chat 测试界面</h1>
+            <p>实时流式对话测试 - Server-Sent Events</p>
+        </div>
+
+        <!-- 聊天消息显示区域 -->
+        <div class="chat-container" id="chatContainer">
+            <div class="message system">
+                <div class="message-content">✨ 系统已就绪，请输入问题开始对话</div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-container">
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="questionInput"
+                    placeholder="输入你的问题..."
+                    autocomplete="off"
+                />
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const chatContainer = document.getElementById('chatContainer');
+        const questionInput = document.getElementById('questionInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // 当前是否正在接收消息
+        let isReceiving = false;
+
+        /**
+         * 添加消息到聊天容器
+         * @param {string} content - 消息内容
+         * @param {string} type - 消息类型：'user' | 'assistant' | 'system'
+         * @returns {HTMLElement} 返回消息元素
+         */
+        function addMessage(content, type = 'assistant') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            return messageDiv;
+        }
+
+        /**
+         * 更新指定消息的内容（用于流式追加）
+         * @param {HTMLElement} messageElement - 消息DOM元素
+         * @param {string} content - 新内容
+         */
+        function updateMessage(messageElement, content) {
+            const contentDiv = messageElement.querySelector('.message-content');
+            contentDiv.textContent = content;
+
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        /**
+         * 发送问题并接收SSE流式响应
+         * @param {string} question - 用户问题
+         */
+        async function sendQuestion(question) {
+            if (!question.trim() || isReceiving) {
+                return;
+            }
+
+            // 添加用户消息
+            addMessage(question, 'user');
+
+            // 清空输入框并禁用按钮
+            questionInput.value = '';
+            sendBtn.disabled = true;
+            sendBtn.textContent = '接收中...';
+            isReceiving = true;
+
+            // 创建助手消息容器（用于流式追加内容）
+            const assistantMessage = addMessage('', 'assistant');
+            let fullContent = '';
+
+            try {
+                // 构建SSE请求URL
+                const url = `/chat?question=${encodeURIComponent(question)}`;
+
+                // 创建EventSource连接
+                const eventSource = new EventSource(url);
+
+                /**
+                 * 处理SSE消息事件
+                 */
+                eventSource.addEventListener('LLMResp', (event) => {
+                    try {
+                        // 解析接收到的JSON数据
+                        const data = JSON.parse(event.data);
+
+                        // 如果有chunk内容，追加到消息中
+                        if (data.chunk) {
+                            fullContent += data.chunk;
+                            updateMessage(assistantMessage, fullContent);
+                        }
+
+                        // 如果有usage信息，显示统计数据
+                        if (data.usage) {
+                            addMessage(data.usage, 'system');
+                            // 关闭连接
+                            eventSource.close();
+                            // 恢复发送按钮
+                            resetSendButton();
+                        }
+                    } catch (err) {
+                        console.error('解析SSE数据失败:', err);
+                    }
+                });
+
+                /**
+                 * 处理SSE连接错误
+                 */
+                eventSource.onerror = (error) => {
+                    console.error('SSE连接错误:', error);
+                    eventSource.close();
+
+                    // 如果没有接收到任何内容，显示错误消息
+                    if (!fullContent) {
+                        updateMessage(assistantMessage, '❌ 连接错误，请检查服务器状态');
+                    }
+
+                    // 恢复发送按钮
+                    resetSendButton();
+                };
+
+            } catch (error) {
+                console.error('发送请求失败:', error);
+                updateMessage(assistantMessage, '❌ 请求失败: ' + error.message);
+                resetSendButton();
+            }
+        }
+
+        /**
+         * 重置发送按钮状态
+         */
+        function resetSendButton() {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '发送';
+            isReceiving = false;
+        }
+
+        /**
+         * 处理发送按钮点击事件
+         */
+        sendBtn.addEventListener('click', () => {
+            const question = questionInput.value;
+            sendQuestion(question);
+        });
+
+        /**
+         * 处理输入框回车事件
+         */
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const question = questionInput.value;
+                sendQuestion(question);
+            }
+        });
+
+        // 页面加载完成后聚焦输入框
+        questionInput.focus();
+    </script>
+</body>
+</html>
