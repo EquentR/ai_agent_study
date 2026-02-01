@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	llmClient := openai.NewOpenAiClient("https://aihubmix.com/v1", os.Getenv("OPENAI_API_KEY"))
+	llmClient := openai.NewOpenAiClient(os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_API_KEY"))
 	sampling := model.SamplingParams{}
 	sampling.SetTemperature(1.5)
 	sampling.SetTopP(1.0)

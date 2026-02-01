@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	llmClient := openai.NewOpenAiClient("https://aihubmix.com/v1", os.Getenv("OPENAI_API_KEY"))
+	llmClient := openai.NewOpenAiClient(os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_API_KEY"))
 	resp, err := llmClient.Chat(context.Background(),
 		model.ChatRequest{
 			Model: "kimi-k2.5",
