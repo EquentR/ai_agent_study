@@ -1,0 +1,25 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  apiBasePath: /api/v1
+  staticPath: static/web/phase1
+
+sqlite:
+  name: phase1
+  autoCreate: true
+  inMemory: false
+  dbDir: data/phase1/
+  logLevel: info
+  params:
+    - _pragma=journal_mode(WAL)
+    - _pragma=busy_timeout(30000)
+    - _txlock=exclusive
+
+log:
+  level: info
+  file: logs/phase1.log
+  rotation: true
+  maxSize: 100
+  maxAge: 30
+  maxBackups: 7
+  compress: true
