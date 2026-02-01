@@ -5,10 +5,11 @@ import (
 	"agent_study/pkg/llm_core/model"
 	"context"
 	"fmt"
+	"os"
 )
 
 func main() {
-	llmClient := openai.NewOpenAiClient("https://aihubmix.com/v1", "sk-7Ml0b2aDSehfpjJh1279B368D13b47FbA43865C1FeB1C990")
+	llmClient := openai.NewOpenAiClient("https://aihubmix.com/v1", os.Getenv("OPENAI_API_KEY"))
 	sampling := model.SamplingParams{}
 	sampling.SetTemperature(1.5)
 	sampling.SetTopP(1.0)
