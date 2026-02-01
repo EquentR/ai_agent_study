@@ -32,6 +32,18 @@ func NewAsyncTokenCounter(mode CountMode, model string) (*AsyncTokenCounter, err
 	return atc, nil
 }
 
+func NewCl100kAsyncTokenCounter() (*AsyncTokenCounter, error) {
+	counter, err := NewCl100kTokenCounter()
+	if err != nil {
+		return nil, err
+	}
+
+	atc := &AsyncTokenCounter{
+		counter: counter,
+	}
+	return atc, nil
+}
+
 // Append 追加内容到buffer
 func (atc *AsyncTokenCounter) Append(content string) {
 	if content == "" {

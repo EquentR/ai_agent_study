@@ -43,6 +43,20 @@ func NewTokenCounter(mode CountMode, model string) (*TokenCounter, error) {
 	return tc, nil
 }
 
+// NewCl100kTokenCounter 创建默认的cl100k_base token计数器
+func NewCl100kTokenCounter() (*TokenCounter, error) {
+	tc := &TokenCounter{
+		mode: CountModeTokenizer,
+	}
+	enc, err := tiktoken.GetEncoding(tiktoken.MODEL_CL100K_BASE)
+	if err != nil {
+		return nil, err
+	}
+	tc.encoding = enc
+
+	return tc, nil
+}
+
 // Count 计算token数量
 func (tc *TokenCounter) Count(text string) int {
 	tc.mu.RLock()

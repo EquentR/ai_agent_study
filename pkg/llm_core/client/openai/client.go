@@ -104,7 +104,7 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 	}
 
 	// 初始化token计数器（使用tokenizer模式）
-	asyncCounter, err := tools.NewAsyncTokenCounter(tools.CountModeTokenizer, req.Model)
+	asyncCounter, err := tools.NewCl100kAsyncTokenCounter()
 	if err != nil {
 		// 降级到rune模式
 		asyncCounter, _ = tools.NewAsyncTokenCounter(tools.CountModeRune, "")
