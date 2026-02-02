@@ -1,6 +1,9 @@
 package phase1router
 
 import (
+	"agent_study/internal/handler"
+	phase1handler "agent_study/internal/handler/phase1"
+
 	"github.com/gin-gonic/gin"
 	gStatic "github.com/soulteary/gin-static"
 )
@@ -8,7 +11,11 @@ import (
 type Register func(apiGroup *gin.RouterGroup)
 
 var (
-	registers = []Register{}
+	registers = []Register{
+		handler.Register,
+		phase1handler.PromptRegister,
+		phase1handler.ConversationRegister,
+	}
 )
 
 func registerAPI(apiGroup *gin.RouterGroup) {

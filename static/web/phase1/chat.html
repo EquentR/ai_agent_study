@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单次问答 - LLM Prompt 管理系统</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* Chat specific styles */
+        .chat-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+
+        .message-box.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+
+        .token-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .rating-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .rating-section.hidden {
+            display: none;
+        }
+
+        .star-rating {
+            display: flex;
+            gap: 4px;
+        }
+
+        .star {
+            font-size: 28px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+        }
+
+        .star:hover {
+            transform: scale(1.2);
+        }
+
+        .star.filled {
+            color: #ffd700;
+        }
+
+        .star.empty {
+            color: #ddd;
+        }
+
+        .history-item {
+            background: white;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-prompt {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .history-question {
+            color: #555;
+            margin-bottom: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-tokens {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .prompt-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #e7f3ff;
+            color: #0066cc;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>💬 单次问答</h1>
+            <div class="nav">
+                <a href="index.html">Prompt管理</a>
+                <a href="chat.html" class="active">单次问答</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 问答区域 -->
+        <div class="chat-container">
+            <!-- 左侧：输入区 -->
+            <div class="chat-section">
+                <div class="card">
+                    <h2 class="card-title">🎯 发起问答</h2>
+                    <form id="chatForm">
+                        <div class="form-group">
+                            <label for="promptSelect">选择 Prompt (可选)</label>
+                            <select id="promptSelect">
+                                <option value="0">不使用 Prompt</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="userQuestion">您的问题</label>
+                            <textarea id="userQuestion" placeholder="请输入您的问题..." required></textarea>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                发送问题
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="clearChat()">
+                                清空
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 右侧：回复区 -->
+            <div class="chat-section">
+                <div class="card">
+                    <h2 class="card-title">🤖 AI 回复</h2>
+                    <div id="assistantReply" class="message-box empty">
+                        等待您的问题...
+                    </div>
+
+                    <!-- Token统计 -->
+                    <div id="tokenStats" class="token-stats" style="display: none;">
+                        <div class="stat-item">
+                            <div class="stat-label">Prompt Tokens</div>
+                            <div class="stat-value" id="promptTokens">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Completion Tokens</div>
+                            <div class="stat-value" id="completionTokens">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Total Tokens</div>
+                            <div class="stat-value" id="totalTokens">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">响应延迟</div>
+                            <div class="stat-value" id="latency">-</div>
+                        </div>
+                    </div>
+
+                    <!-- 快捷评分 -->
+                    <div id="ratingSection" class="rating-section hidden">
+                        <span>对本次回答评分：</span>
+                        <div class="star-rating" id="starRating">
+                            <span class="star empty" onclick="rate(1)">★</span>
+                            <span class="star empty" onclick="rate(2)">★</span>
+                            <span class="star empty" onclick="rate(3)">★</span>
+                            <span class="star empty" onclick="rate(4)">★</span>
+                            <span class="star empty" onclick="rate(5)">★</span>
+                        </div>
+                        <button class="btn btn-success" onclick="submitQuickRating()">提交评分</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 对话历史 -->
+        <div class="card">
+            <h2 class="card-title">📜 对话历史</h2>
+            <div id="historyList">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="pagination">
+                <button class="btn btn-secondary" id="prevPage">上一页</button>
+                <span id="pageInfo">第 1 页</span>
+                <button class="btn btn-secondary" id="nextPage">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对话详情Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>💬 对话详情</h3>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailContent">
+                <!-- 动态加载 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDetailModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast通知 -->
+    <div id="toast" class="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        // 页面状态
+        let currentConversationId = null;
+        let currentPromptId = null;
+        let currentRating = 0;
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = 1;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPromptList();
+            loadConversationHistory();
+            setupEventListeners();
+        });
+
+        // 设置事件监听
+        function setupEventListeners() {
+            // 问答表单提交
+            document.getElementById('chatForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitChat();
+            });
+
+            // 分页按钮
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadConversationHistory();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadConversationHistory();
+                }
+            });
+        }
+
+        // 加载Prompt列表到下拉框
+        async function loadPromptList() {
+            try {
+                const result = await apiGet('/prompt/?page=1&page_size=100');
+
+                if (result.ok && result.data.list) {
+                    const select = document.getElementById('promptSelect');
+                    result.data.list.forEach(prompt => {
+                        const option = document.createElement('option');
+                        option.value = prompt.id;
+                        option.textContent = prompt.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load prompts:', error);
+            }
+        }
+
+        // 提交问答
+        async function submitChat() {
+            const promptId = parseInt(document.getElementById('promptSelect').value);
+            const question = document.getElementById('userQuestion').value.trim();
+
+            if (!question) {
+                showToast('请输入问题', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+
+            // 禁用按钮，显示加载状态
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner"></span> 思考中...';
+
+            // 隐藏评分区域
+            document.getElementById('ratingSection').classList.add('hidden');
+            document.getElementById('tokenStats').style.display = 'none';
+
+            // 显示等待状态
+            const replyBox = document.getElementById('assistantReply');
+            replyBox.className = 'message-box empty';
+            replyBox.textContent = '🤔 AI 正在思考...';
+
+            try {
+                const result = await apiPost('/conversation/chat', {
+                    prompt_id: promptId,
+                    question: question,
+                    model: 'kimi-k2.5'
+                });
+
+                if (result.ok) {
+                    const data = result.data;
+
+                    // 显示回复
+                    replyBox.className = 'message-box';
+                    replyBox.textContent = data.reply;
+
+                    // 显示Token统计
+                    document.getElementById('promptTokens').textContent = formatTokenCount(data.prompt_tokens);
+                    document.getElementById('completionTokens').textContent = formatTokenCount(data.completion_tokens);
+                    document.getElementById('totalTokens').textContent = formatTokenCount(data.total_tokens);
+                    document.getElementById('latency').textContent = formatLatency(data.latency);
+                    document.getElementById('tokenStats').style.display = 'grid';
+
+                    // 显示评分区域（仅当使用了Prompt时）
+                    if (promptId > 0) {
+                        currentConversationId = data.conversation_id;
+                        currentPromptId = promptId;
+                        currentRating = 0;
+                        resetStars();
+                        document.getElementById('ratingSection').classList.remove('hidden');
+                    }
+
+                    // 刷新历史记录
+                    loadConversationHistory();
+
+                    showToast('问答完成', 'success');
+                } else {
+                    replyBox.className = 'message-box';
+                    replyBox.textContent = '❌ ' + (result.message || '请求失败，请稍后重试');
+                    showToast(result.message || '请求失败', 'error');
+                }
+            } catch (error) {
+                replyBox.className = 'message-box';
+                replyBox.textContent = '❌ 网络错误：' + error.message;
+                showToast('网络错误: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        // 清空对话
+        function clearChat() {
+            document.getElementById('userQuestion').value = '';
+            document.getElementById('assistantReply').className = 'message-box empty';
+            document.getElementById('assistantReply').textContent = '等待您的问题...';
+            document.getElementById('tokenStats').style.display = 'none';
+            document.getElementById('ratingSection').classList.add('hidden');
+            currentConversationId = null;
+            currentPromptId = null;
+            currentRating = 0;
+        }
+
+        // 星级评分
+        function rate(score) {
+            currentRating = score * 2; // 转换为0-10分制
+            updateStars(score);
+        }
+
+        function updateStars(score) {
+            const stars = document.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                if (index < score) {
+                    star.classList.remove('empty');
+                    star.classList.add('filled');
+                } else {
+                    star.classList.remove('filled');
+                    star.classList.add('empty');
+                }
+            });
+        }
+
+        function resetStars() {
+            const stars = document.querySelectorAll('.star');
+            stars.forEach(star => {
+                star.classList.remove('filled');
+                star.classList.add('empty');
+            });
+        }
+
+        // 提交快捷评分
+        async function submitQuickRating() {
+            if (currentRating === 0) {
+                showToast('请先选择评分', 'error');
+                return;
+            }
+
+            if (!currentPromptId) {
+                showToast('无法提交评分：未使用Prompt', 'error');
+                return;
+            }
+
+            try {
+                const result = await apiPost(`/prompt/${currentPromptId}/rating`, {
+                    scene_name: '单次问答',
+                    score: currentRating
+                });
+
+                if (result.ok) {
+                    showToast('评分提交成功', 'success');
+                    document.getElementById('ratingSection').classList.add('hidden');
+                } else {
+                    showToast(result.message || '评分提交失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 加载对话历史
+        async function loadConversationHistory() {
+            try {
+                const result = await apiGet(`/conversation/?page=${currentPage}&page_size=${pageSize}`);
+
+                if (result.ok) {
+                    renderHistory(result.data);
+                    updatePagination(result.data);
+                } else {
+                    showToast(result.message || '加载失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染历史记录
+        function renderHistory(data) {
+            const historyList = document.getElementById('historyList');
+
+            if (!data.list || data.list.length === 0) {
+                historyList.innerHTML = `
+                    <div class="loading">
+                        📭 暂无对话记录
+                    </div>
+                `;
+                return;
+            }
+
+            historyList.innerHTML = data.list.map(conv => {
+                const promptName = conv.prompt ? conv.prompt.name : '无Prompt';
+                return `
+                    <div class="history-item" onclick="viewConversation(${conv.id})">
+                        <div class="history-header">
+                            <div class="history-prompt">${escapeHtml(promptName)}</div>
+                            <div class="history-date">${formatDate(conv.created_at)}</div>
+                        </div>
+                        <div class="history-question">
+                            <strong>问：</strong>${escapeHtml(conv.user_question)}
+                        </div>
+                        <div class="history-tokens">
+                            <span>📊 ${formatTokenCount(conv.total_tokens)} tokens</span>
+                            <span>⚡ ${formatLatency(conv.latency)}</span>
+                            <span>🤖 ${escapeHtml(conv.model)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 更新分页信息
+        function updatePagination(data) {
+            totalPages = Math.ceil(data.total / pageSize) || 1;
+            document.getElementById('pageInfo').textContent = `第 ${currentPage} / ${totalPages} 页 (共 ${data.total} 条)`;
+            document.getElementById('prevPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        }
+
+        // 查看对话详情
+        async function viewConversation(id) {
+            try {
+                const result = await apiGet(`/conversation/${id}`);
+
+                if (result.ok) {
+                    const conv = result.data;
+                    const promptInfo = conv.prompt ?
+                        `<span class="prompt-badge">${escapeHtml(conv.prompt.name)}</span>` :
+                        '<span class="prompt-badge" style="background: #f0f0f0; color: #666;">无Prompt</span>';
+
+                    document.getElementById('detailContent').innerHTML = `
+                        <div class="form-group">
+                            <label>使用的 Prompt</label>
+                            <p>${promptInfo}</p>
+                        </div>
+                        <div class="form-group">
+                            <label>用户问题</label>
+                            <div class="message-box">${escapeHtml(conv.user_question)}</div>
+                        </div>
+                        <div class="form-group">
+                            <label>AI 回复</label>
+                            <div class="message-box">${escapeHtml(conv.assistant_reply)}</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Token 统计</label>
+                            <div class="token-stats">
+                                <div class="stat-item">
+                                    <div class="stat-label">Prompt Tokens</div>
+                                    <div class="stat-value">${formatTokenCount(conv.prompt_tokens)}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Completion Tokens</div>
+                                    <div class="stat-value">${formatTokenCount(conv.completion_tokens)}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Total Tokens</div>
+                                    <div class="stat-value">${formatTokenCount(conv.total_tokens)}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">响应延迟</div>
+                                    <div class="stat-value">${formatLatency(conv.latency)}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>其他信息</label>
+                            <p><strong>模型：</strong>${escapeHtml(conv.model)}</p>
+                            <p><strong>时间：</strong>${formatDate(conv.created_at)}</p>
+                        </div>
+                    `;
+
+                    document.getElementById('detailModal').classList.add('active');
+                } else {
+                    showToast(result.message || '加载失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 关闭详情Modal
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+    </script>
+</body>
+</html>

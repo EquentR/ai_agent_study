@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Prompt 管理系统</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        /* Page specific styles */
+        .prompt-content {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state div {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            th, td {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+
+            .action-btns {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🤖 LLM Prompt 管理系统</h1>
+            <div class="nav">
+                <a href="index.html" class="active">Prompt管理</a>
+                <a href="chat.html">单次问答</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 创建Prompt表单 -->
+        <div class="card">
+            <h2 class="card-title">✨ 创建新 Prompt</h2>
+            <form id="createForm">
+                <div class="form-group">
+                    <label for="promptName">名称</label>
+                    <input type="text" id="promptName" placeholder="请输入Prompt名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="promptContent">内容</label>
+                    <textarea id="promptContent" placeholder="请输入Prompt内容" required></textarea>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">创建 Prompt</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Prompt列表 -->
+        <div class="card">
+            <h2 class="card-title">📋 Prompt 列表</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>内容</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="promptList">
+                        <tr>
+                            <td colspan="5" class="loading">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="btn btn-secondary" id="prevPage">上一页</button>
+                <span id="pageInfo">第 1 页</span>
+                <button class="btn btn-secondary" id="nextPage">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📝 编辑 Prompt</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editId">
+                    <div class="form-group">
+                        <label for="editName">名称</label>
+                        <input type="text" id="editName" placeholder="请输入Prompt名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editContent">内容</label>
+                        <textarea id="editContent" placeholder="请输入Prompt内容" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评分Modal -->
+    <div class="modal-overlay" id="ratingModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>⭐ 添加评分</h3>
+                <button class="modal-close" onclick="closeRatingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="ratingForm">
+                    <input type="hidden" id="ratingPromptId">
+                    <div class="form-group">
+                        <label for="sceneName">场景名称</label>
+                        <input type="text" id="sceneName" placeholder="如：代码生成、文案写作、问答对话等" required>
+                    </div>
+                    <div class="form-group">
+                        <label>评分 (0-10分)</label>
+                        <div class="rating-input">
+                            <input type="range" id="ratingScore" min="0" max="10" step="0.5" value="5"
+                                   oninput="updateRatingDisplay(this.value)">
+                            <span class="rating-value" id="ratingDisplay">5</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRatingModal()">取消</button>
+                <button class="btn btn-success" onclick="submitRating()">提交评分</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评分汇总Modal -->
+    <div class="modal-overlay" id="summaryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📊 评分汇总</h3>
+                <button class="modal-close" onclick="closeSummaryModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="summaryContent">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSummaryModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📄 Prompt 详情</h3>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="detailContent">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDetailModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // API基础路径
+        const API_BASE = '/api/v1/prompt';
+
+        // 分页状态
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = 1;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPrompts();
+            setupEventListeners();
+        });
+
+        // 设置事件监听
+        function setupEventListeners() {
+            // 创建表单提交
+            document.getElementById('createForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await createPrompt();
+            });
+
+            // 分页按钮
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadPrompts();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadPrompts();
+                }
+            });
+        }
+
+        // 加载Prompt列表
+        async function loadPrompts() {
+            try {
+                const response = await fetch(`${API_BASE}/?page=${currentPage}&page_size=${pageSize}`);
+                const result = await response.json();
+
+                if (result.ok) {
+                    renderPromptList(result.data);
+                    updatePagination(result.data);
+                } else {
+                    showToast(result.message || '加载失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染Prompt列表
+        function renderPromptList(data) {
+            const tbody = document.getElementById('promptList');
+
+            if (!data.list || data.list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <div>📭</div>
+                            <p>暂无Prompt数据</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = data.list.map(prompt => `
+                <tr>
+                    <td>${prompt.id}</td>
+                    <td>${escapeHtml(prompt.name)}</td>
+                    <td class="prompt-content" title="${escapeHtml(prompt.content)}">${escapeHtml(prompt.content)}</td>
+                    <td>${formatDate(prompt.created_at)}</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn btn-info" onclick="viewDetail(${prompt.id})">查看</button>
+                            <button class="btn btn-primary" onclick="openEditModal(${prompt.id}, '${escapeHtml(prompt.name)}', '${escapeJs(prompt.content)}')">编辑</button>
+                            <button class="btn btn-success" onclick="openRatingModal(${prompt.id})">评分</button>
+                            <button class="btn btn-secondary" onclick="viewSummary(${prompt.id})">汇总</button>
+                            <button class="btn btn-danger" onclick="deletePrompt(${prompt.id})">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 更新分页信息
+        function updatePagination(data) {
+            totalPages = Math.ceil(data.total / pageSize) || 1;
+            document.getElementById('pageInfo').textContent = `第 ${currentPage} / ${totalPages} 页 (共 ${data.total} 条)`;
+            document.getElementById('prevPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        }
+
+        // 创建Prompt
+        async function createPrompt() {
+            const name = document.getElementById('promptName').value.trim();
+            const content = document.getElementById('promptContent').value.trim();
+
+            if (!name || !content) {
+                showToast('请填写完整信息', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content })
+                });
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('创建成功', 'success');
+                    document.getElementById('createForm').reset();
+                    loadPrompts();
+                } else {
+                    showToast(result.message || '创建失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 查看详情
+        async function viewDetail(id) {
+            document.getElementById('detailModal').classList.add('active');
+            document.getElementById('detailContent').innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/${id}`);
+                const result = await response.json();
+
+                if (result.ok) {
+                    const prompt = result.data;
+                    document.getElementById('detailContent').innerHTML = `
+                        <div class="form-group">
+                            <label>ID</label>
+                            <p>${prompt.id}</p>
+                        </div>
+                        <div class="form-group">
+                            <label>名称</label>
+                            <p>${escapeHtml(prompt.name)}</p>
+                        </div>
+                        <div class="form-group">
+                            <label>内容</label>
+                            <pre style="white-space: pre-wrap; background: #f5f5f5; padding: 12px; border-radius: 8px;">${escapeHtml(prompt.content)}</pre>
+                        </div>
+                        <div class="form-group">
+                            <label>创建时间</label>
+                            <p>${formatDate(prompt.created_at)}</p>
+                        </div>
+                        <div class="form-group">
+                            <label>更新时间</label>
+                            <p>${formatDate(prompt.updated_at)}</p>
+                        </div>
+                    `;
+                } else {
+                    showToast(result.message || '加载失败', 'error');
+                    closeDetailModal();
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+                closeDetailModal();
+            }
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // 编辑相关
+        function openEditModal(id, name, content) {
+            document.getElementById('editId').value = id;
+            document.getElementById('editName').value = name;
+            document.getElementById('editContent').value = content;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        async function submitEdit() {
+            const id = document.getElementById('editId').value;
+            const name = document.getElementById('editName').value.trim();
+            const content = document.getElementById('editContent').value.trim();
+
+            if (!name || !content) {
+                showToast('请填写完整信息', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content })
+                });
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('更新成功', 'success');
+                    closeEditModal();
+                    loadPrompts();
+                } else {
+                    showToast(result.message || '更新失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 删除Prompt
+        async function deletePrompt(id) {
+            if (!confirm('确定要删除这个Prompt吗？相关的评分记录也会被删除。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('删除成功', 'success');
+                    loadPrompts();
+                } else {
+                    showToast(result.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 评分相关
+        function openRatingModal(id) {
+            document.getElementById('ratingPromptId').value = id;
+            document.getElementById('sceneName').value = '';
+            document.getElementById('ratingScore').value = 5;
+            document.getElementById('ratingDisplay').textContent = '5';
+            document.getElementById('ratingModal').classList.add('active');
+        }
+
+        function closeRatingModal() {
+            document.getElementById('ratingModal').classList.remove('active');
+        }
+
+        function updateRatingDisplay(value) {
+            document.getElementById('ratingDisplay').textContent = value;
+        }
+
+        async function submitRating() {
+            const promptId = document.getElementById('ratingPromptId').value;
+            const sceneName = document.getElementById('sceneName').value.trim();
+            const score = parseFloat(document.getElementById('ratingScore').value);
+
+            if (!sceneName) {
+                showToast('请输入场景名称', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/${promptId}/rating`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scene_name: sceneName, score: score })
+                });
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('评分成功', 'success');
+                    closeRatingModal();
+                } else {
+                    showToast(result.message || '评分失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 查看评分汇总
+        async function viewSummary(id) {
+            document.getElementById('summaryModal').classList.add('active');
+            document.getElementById('summaryContent').innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/${id}/rating/summary`);
+                const result = await response.json();
+
+                if (result.ok) {
+                    const summaries = result.data;
+                    if (!summaries || summaries.length === 0) {
+                        document.getElementById('summaryContent').innerHTML = `
+                            <div class="empty-state">
+                                <div>📊</div>
+                                <p>暂无评分数据</p>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('summaryContent').innerHTML = summaries.map(s => `
+                            <div class="summary-item">
+                                <div>
+                                    <div class="summary-scene">${escapeHtml(s.scene_name)}</div>
+                                    <div class="summary-count">${s.count} 次评分</div>
+                                </div>
+                                <div class="summary-score">${s.avg_score.toFixed(1)}</div>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    showToast(result.message || '加载失败', 'error');
+                    closeSummaryModal();
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+                closeSummaryModal();
+            }
+        }
+
+        function closeSummaryModal() {
+            document.getElementById('summaryModal').classList.remove('active');
+        }
+    </script>
+    <script src="common.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import (
 	"agent_study/internal/config"
 	"agent_study/internal/db"
 	"agent_study/internal/log"
+	phase1migrate "agent_study/internal/migrate/phase1"
 	phase1router "agent_study/internal/router/phase1"
 	"fmt"
 	"net"
@@ -19,6 +20,9 @@ func Serve(c *config.Config) {
 
 	// 初始化数据库
 	db.Init(&c.Sqlite)
+
+	// 迁移表结构
+	phase1migrate.Bootstrap("0.0.1")
 
 	// 初始化路由
 	gin.SetMode(gin.ReleaseMode)
