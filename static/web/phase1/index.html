@@ -283,7 +283,7 @@
                     <td>
                         <div class="action-btns">
                             <button class="btn btn-info" onclick="viewDetail(${prompt.id})">查看</button>
-                            <button class="btn btn-primary" onclick="openEditModal(${prompt.id}, '${escapeHtml(prompt.name)}', '${escapeJs(prompt.content)}')">编辑</button>
+                            <button class="btn btn-primary" data-prompt-id="${prompt.id}" onclick="openEditModalById(${prompt.id})">编辑</button>
                             <button class="btn btn-success" onclick="openRatingModal(${prompt.id})">评分</button>
                             <button class="btn btn-secondary" onclick="viewSummary(${prompt.id})">汇总</button>
                             <button class="btn btn-danger" onclick="deletePrompt(${prompt.id})">删除</button>
@@ -378,7 +378,32 @@
             document.getElementById('detailModal').classList.remove('active');
         }
 
-        // 编辑相关
+        /**
+         * 通过ID打开编辑Modal - 通过API获取数据避免内联JSON问题
+         * @param {number} id - Prompt ID
+         */
+        async function openEditModalById(id) {
+            try {
+                const response = await fetch(`${API_BASE}/${id}`);
+                const result = await response.json();
+
+                if (result.ok) {
+                    const prompt = result.data;
+                    openEditModal(id, prompt.name, prompt.content);
+                } else {
+                    showToast(result.message || '加载Prompt失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * 打开编辑Modal
+         * @param {number} id - Prompt ID
+         * @param {string} name - Prompt名称
+         * @param {string} content - Prompt内容
+         */
         function openEditModal(id, name, content) {
             document.getElementById('editId').value = id;
             document.getElementById('editName').value = name;

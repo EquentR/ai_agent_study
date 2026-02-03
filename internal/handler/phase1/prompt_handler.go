@@ -21,6 +21,7 @@ func PromptRegister(apiGroup *gin.RouterGroup) {
 			resp.NewJsonHandler(handleDeletePrompt),
 			resp.NewJsonHandler(handleAddRating),
 			resp.NewJsonHandler(handleGetRatingSummary),
+			resp.NewJsonHandler(handleListRatings),
 		})
 }
 
@@ -38,8 +39,9 @@ type PromptUpdateReq struct {
 
 // PromptRatingReq 添加评分请求参数
 type PromptRatingReq struct {
-	SceneName string  `json:"scene_name" binding:"required"` // 场景名称
-	Score     float32 `json:"score" binding:"required"`      // 评分(0-10)
+	SceneName      string  `json:"scene_name" binding:"required"` // 场景名称
+	Score          float32 `json:"score" binding:"required"`      // 评分(0-10)
+	ConversationID *uint   `json:"conversation_id,omitempty"`     // 关联对话ID
 }
 
 // PromptListResp 分页列表响应
@@ -48,6 +50,15 @@ type PromptListResp struct {
 	Total    int64           `json:"total"`     // 总数量
 	Page     int             `json:"page"`      // 当前页码
 	PageSize int             `json:"page_size"` // 每页数量
+}
+
+// PromptRatingListResp 评分明细列表响应
+// 用于返回评分明细查询结果
+type PromptRatingListResp struct {
+	List     []*model.PromptRatingDetail `json:"list"`
+	Total    int64                       `json:"total"`
+	Page     int                         `json:"page"`
+	PageSize int                         `json:"page_size"`
 }
 
 // handleListPrompts
@@ -227,7 +238,7 @@ func handleAddRating() (string, string, resp.JsonResultWrapper, []resp.WrapperOp
 		}
 
 		// 调用业务逻辑
-		if err := phase1logic.AddPromptRating(uint(id), req.SceneName, req.Score); err != nil {
+		if err := phase1logic.AddPromptRating(uint(id), req.SceneName, req.Score, req.ConversationID); err != nil {
 			return nil, err
 		}
 
@@ -254,5 +265,58 @@ func handleGetRatingSummary() (string, string, resp.JsonResultWrapper, []resp.Wr
 
 		// 调用业务逻辑
 		return phase1logic.GetPromptRatingSummary(uint(id))
+	}, nil
+}
+
+// handleListRatings
+//
+//	@Summary		获取评分明细列表
+//	@Description	支持按Prompt、场景和对话ID过滤评分明细
+//	@Tags			prompt
+//	@Produce		json
+//	@Param			prompt_id		query		int		false	"Prompt ID(可选)"
+//	@Param			scene_name		query		string	false	"场景名称(可选)"
+//	@Param			conversation_id	query		int		false	"对话ID(可选)"
+//	@Param			page			query		int		false	"页码，默认1"
+//	@Param			page_size		query		int		false	"每页数量，默认10，最大100"
+//	@Router			/prompt/rating/list [get]
+//	@Success		200	{object}	resp.Result{data=PromptRatingListResp}
+func handleListRatings() (string, string, resp.JsonResultWrapper, []resp.WrapperOption) {
+	return http.MethodGet, "/rating/list", func(c *gin.Context) (any, error) {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+		sceneName := c.Query("scene_name")
+
+		var promptID *uint
+		if promptIDRaw := c.Query("prompt_id"); promptIDRaw != "" {
+			value, err := strconv.ParseUint(promptIDRaw, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			parsed := uint(value)
+			promptID = &parsed
+		}
+
+		var conversationID *uint
+		if conversationIDRaw := c.Query("conversation_id"); conversationIDRaw != "" {
+			value, err := strconv.ParseUint(conversationIDRaw, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			parsed := uint(value)
+			conversationID = &parsed
+		}
+
+		list, total, err := phase1logic.ListPromptRatings(promptID, sceneName, conversationID, page, pageSize)
+		if err != nil {
+			return nil, err
+		}
+
+		return PromptRatingListResp{
+			List:     list,
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
+		}, nil
 	}, nil
 }

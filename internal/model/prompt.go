@@ -20,11 +20,12 @@ func (Prompt) TableName() string {
 // PromptRating Prompt评分结构体
 // 用于记录不同场景下Prompt的评分
 type PromptRating struct {
-	ID        uint      `json:"id" gorm:"type:integer;not null;primaryKey;autoIncrement;comment:主键ID"`
-	PromptID  uint      `json:"prompt_id" gorm:"type:integer;not null;index;comment:关联的Prompt ID"`
-	SceneName string    `json:"scene_name" gorm:"type:varchar(255);not null;comment:场景名称"`
-	Score     float32   `json:"score" gorm:"type:real;not null;comment:评分(0-10)"`
-	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;not null;comment:创建时间"`
+	ID             uint      `json:"id" gorm:"type:integer;not null;primaryKey;autoIncrement;comment:主键ID"`
+	PromptID       uint      `json:"prompt_id" gorm:"type:integer;not null;index;comment:关联的Prompt ID"`
+	SceneName      string    `json:"scene_name" gorm:"type:varchar(255);not null;comment:场景名称"`
+	Score          float32   `json:"score" gorm:"type:real;not null;comment:评分(0-10)"`
+	ConversationID *uint     `json:"conversation_id,omitempty" gorm:"type:integer;index;comment:关联对话ID"`
+	CreatedAt      time.Time `json:"created_at" gorm:"type:datetime;not null;comment:创建时间"`
 }
 
 // TableName 指定表名
@@ -38,4 +39,15 @@ type PromptRatingSummary struct {
 	SceneName string  `json:"scene_name"` // 场景名称
 	AvgScore  float32 `json:"avg_score"`  // 平均分
 	Count     int     `json:"count"`      // 评分次数
+}
+
+// PromptRatingDetail DTO for detailed prompt rating information
+type PromptRatingDetail struct {
+	ID             uint      `json:"id"`
+	PromptID       uint      `json:"prompt_id"`
+	PromptName     string    `json:"prompt_name"`
+	SceneName      string    `json:"scene_name"`
+	Score          float32   `json:"score"`
+	ConversationID *uint     `json:"conversation_id,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }

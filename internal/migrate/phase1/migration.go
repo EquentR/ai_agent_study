@@ -9,6 +9,7 @@ var versionMigrations = []migrate.Migration{
 	to001,
 	to002,
 	to003,
+	to004,
 }
 
 func Bootstrap(version string) {

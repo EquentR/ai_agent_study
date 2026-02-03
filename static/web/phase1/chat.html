@@ -12,11 +12,13 @@
             grid-template-columns: 1fr 1fr;
             gap: 24px;
             margin-bottom: 24px;
+            height: 800px;
         }
 
         @media (max-width: 768px) {
             .chat-container {
                 grid-template-columns: 1fr;
+                height: auto;
             }
         }
 
@@ -24,14 +26,44 @@
             display: flex;
             flex-direction: column;
             gap: 16px;
+            height: 100%;
+        }
+
+        .chat-section .card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #chatForm {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 16px;
+        }
+
+        #chatForm .form-group:last-of-type {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chatForm textarea {
+            flex: 1;
+            resize: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-shrink: 0;
         }
 
         .message-box {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 16px;
-            min-height: 200px;
-            max-height: 400px;
+            flex: 1;
             overflow-y: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -50,6 +82,23 @@
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 12px;
             margin-top: 12px;
+            flex-shrink: 0;
+        }
+
+        .token-stats.compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        .token-stat {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
         }
 
         .stat-item {
@@ -71,42 +120,204 @@
             font-weight: 600;
         }
 
+        /* 评分区域样式 - 对话完成后显示 */
         .rating-section {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 12px;
             padding: 16px;
             background: #fff3cd;
             border-radius: 8px;
             margin-top: 12px;
+            flex-shrink: 0;
         }
 
-        .rating-section.hidden {
+        .rating-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 场景输入框及自动完成样式 */
+        .scene-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .scene-input-wrapper input {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 150px;
+        }
+
+        .scene-input-wrapper input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .scene-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 100;
             display: none;
         }
 
+        .scene-suggestions.show {
+            display: block;
+        }
+
+        .scene-suggestion-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .scene-suggestion-item:hover {
+            background: #f0f4ff;
+        }
+
+        /* 分数输入样式 - 统一风格 */
+        .score-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .score-input-wrapper input[type="number"] {
+            width: 60px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .score-input-wrapper input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .score-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* 星级评分样式 */
         .star-rating {
             display: flex;
             gap: 4px;
         }
 
         .star {
-            font-size: 28px;
+            font-size: 24px;
             cursor: pointer;
             transition: transform 0.2s;
             user-select: none;
+            position: relative;
+            display: inline-block;
+            line-height: 1;
         }
 
         .star:hover {
-            transform: scale(1.2);
+            transform: scale(1.1);
         }
 
-        .star.filled {
-            color: #ffd700;
-        }
-
-        .star.empty {
+        .star-base {
             color: #ddd;
+        }
+
+        .star-fill {
+            color: #ffd700;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0;
+            overflow: hidden;
+        }
+
+        .rating-value {
+            font-size: 12px;
+            color: #555;
+            min-width: 50px;
+        }
+
+        /* 对话历史中的traceId样式 */
+        .history-trace-id {
+            font-size: 11px;
+            color: #888;
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        /* 评分明细表格样式 */
+        .rating-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .rating-table th,
+        .rating-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .rating-table th {
+            background: #f8f9fa;
+            color: #666;
+        }
+
+        /* 评分明细筛选区域样式 */
+        .rating-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 16px;
+        }
+
+        .rating-filter-row .form-group {
+            margin-bottom: 0;
+            min-width: 120px;
+        }
+
+        .rating-filter-row .form-group input,
+        .rating-filter-row .form-group select {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* 查看对话按钮样式 */
+        .btn-view-conv {
+            padding: 4px 8px;
+            font-size: 11px;
+            background: #e7f3ff;
+            color: #0066cc;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-view-conv:hover {
+            background: #cce5ff;
         }
 
         .history-item {
@@ -208,7 +419,7 @@
                         </div>
                         <div class="form-group">
                             <label for="userQuestion">您的问题</label>
-                            <textarea id="userQuestion" placeholder="请输入您的问题..." required></textarea>
+                            <textarea id="userQuestion" rows="18" placeholder="请输入您的问题..." required></textarea>
                         </div>
                         <div class="btn-group">
                             <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -226,39 +437,57 @@
             <div class="chat-section">
                 <div class="card">
                     <h2 class="card-title">🤖 AI 回复</h2>
-                    <div id="assistantReply" class="message-box empty">
-                        等待您的问题...
-                    </div>
+                    <div id="assistantReply" class="message-box empty">等待您的问题...</div>
 
                     <!-- Token统计 -->
-                    <div id="tokenStats" class="token-stats" style="display: none;">
-                        <div class="stat-item">
-                            <div class="stat-label">Prompt Tokens</div>
-                            <div class="stat-value" id="promptTokens">-</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Completion Tokens</div>
-                            <div class="stat-value" id="completionTokens">-</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Total Tokens</div>
-                            <div class="stat-value" id="totalTokens">-</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">响应延迟</div>
-                            <div class="stat-value" id="latency">-</div>
-                        </div>
+                    <div id="tokenStats" class="token-stats compact" style="display: none;">
+                        <span class="token-stat">Prompt: <span id="promptTokens">-</span></span>
+                        <span class="token-stat">Completion: <span id="completionTokens">-</span></span>
+                        <span class="token-stat">Total: <span id="totalTokens">-</span></span>
+                        <span class="token-stat">延迟: <span id="latency">-</span></span>
                     </div>
 
-                    <!-- 快捷评分 -->
+                    <!-- 快捷评分区域 - 对话完成后显示 -->
                     <div id="ratingSection" class="rating-section hidden">
                         <span>对本次回答评分：</span>
+                        <!-- 场景输入 - 支持自动完成 -->
+                        <div class="rating-field">
+                            <label for="ratingSceneName">场景</label>
+                            <div class="scene-input-wrapper">
+                                <input type="text" id="ratingSceneName" placeholder="如：问答对话"
+                                       autocomplete="off" onfocus="showSceneSuggestions()" oninput="filterSceneSuggestions()">
+                                <div class="scene-suggestions" id="sceneSuggestions"></div>
+                            </div>
+                        </div>
+                        <!-- 星级评分 -->
                         <div class="star-rating" id="starRating">
-                            <span class="star empty" onclick="rate(1)">★</span>
-                            <span class="star empty" onclick="rate(2)">★</span>
-                            <span class="star empty" onclick="rate(3)">★</span>
-                            <span class="star empty" onclick="rate(4)">★</span>
-                            <span class="star empty" onclick="rate(5)">★</span>
+                            <span class="star" onclick="handleStarClick(event, 1)">
+                                <span class="star-base">★</span>
+                                <span class="star-fill">★</span>
+                            </span>
+                            <span class="star" onclick="handleStarClick(event, 2)">
+                                <span class="star-base">★</span>
+                                <span class="star-fill">★</span>
+                            </span>
+                            <span class="star" onclick="handleStarClick(event, 3)">
+                                <span class="star-base">★</span>
+                                <span class="star-fill">★</span>
+                            </span>
+                            <span class="star" onclick="handleStarClick(event, 4)">
+                                <span class="star-base">★</span>
+                                <span class="star-fill">★</span>
+                            </span>
+                            <span class="star" onclick="handleStarClick(event, 5)">
+                                <span class="star-base">★</span>
+                                <span class="star-fill">★</span>
+                            </span>
+                        </div>
+                        <!-- 分数输入框 - 可手动编辑 -->
+                        <div class="score-input-wrapper">
+                            <label for="scoreInput" class="score-label">分数：</label>
+                            <input type="number" id="scoreInput" min="0" max="10" step="0.5" value="0"
+                                   onchange="onScoreInputChange(this.value)" placeholder="0-10">
+                            <span class="score-label">/ 10 分</span>
                         </div>
                         <button class="btn btn-success" onclick="submitQuickRating()">提交评分</button>
                     </div>
@@ -276,6 +505,41 @@
                 <button class="btn btn-secondary" id="prevPage">上一页</button>
                 <span id="pageInfo">第 1 页</span>
                 <button class="btn btn-secondary" id="nextPage">下一页</button>
+            </div>
+        </div>
+
+        <!-- 评分明细查询 -->
+        <div class="card">
+            <h2 class="card-title">📋 评分明细查询</h2>
+            <div class="rating-filter-row">
+                <div class="form-group">
+                    <label for="ratingPromptSelect">Prompt</label>
+                    <select id="ratingPromptSelect">
+                        <option value="">全部Prompt</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ratingSceneSelect">场景名称</label>
+                    <select id="ratingSceneSelect">
+                        <option value="">全部场景</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ratingSceneFilter">场景(自定义)</label>
+                    <input type="text" id="ratingSceneFilter" placeholder="手动输入">
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" type="button" id="ratingQueryBtn">查询</button>
+                    <button class="btn btn-secondary" type="button" id="ratingResetBtn">重置</button>
+                </div>
+            </div>
+            <div id="ratingList">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="pagination">
+                <button class="btn btn-secondary" id="ratingPrevPage">上一页</button>
+                <span id="ratingPageInfo">第 1 页</span>
+                <button class="btn btn-secondary" id="ratingNextPage">下一页</button>
             </div>
         </div>
     </div>
@@ -304,16 +568,24 @@
         // 页面状态
         let currentConversationId = null;
         let currentPromptId = null;
-        let currentRating = 0;
+        let currentStarRating = 0;
+        let currentRating = 0;  // 0-10分数，不需要x2转换
         let currentPage = 1;
         let pageSize = 10;
         let totalPages = 1;
+        let ratingPage = 1;
+        let ratingPageSize = 10;
+        let ratingTotalPages = 1;
+        let sceneNameList = [];  // 场景名称列表，用于自动完成
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadPromptList();
+            loadSceneNameList();  // 加载场景列表用于自动完成
             loadConversationHistory();
+            loadRatingList();
             setupEventListeners();
+            setupSceneInputEvents();  // 设置场景输入事件
         });
 
         // 设置事件监听
@@ -338,6 +610,34 @@
                     loadConversationHistory();
                 }
             });
+
+            document.getElementById('ratingQueryBtn').addEventListener('click', () => {
+                ratingPage = 1;
+                loadRatingList();
+            });
+
+            // 重置筛选条件按钮
+            document.getElementById('ratingResetBtn').addEventListener('click', () => {
+                document.getElementById('ratingPromptSelect').value = '';
+                document.getElementById('ratingSceneSelect').value = '';
+                document.getElementById('ratingSceneFilter').value = '';
+                ratingPage = 1;
+                loadRatingList();
+            });
+
+            document.getElementById('ratingPrevPage').addEventListener('click', () => {
+                if (ratingPage > 1) {
+                    ratingPage--;
+                    loadRatingList();
+                }
+            });
+
+            document.getElementById('ratingNextPage').addEventListener('click', () => {
+                if (ratingPage < ratingTotalPages) {
+                    ratingPage++;
+                    loadRatingList();
+                }
+            });
         }
 
         // 加载Prompt列表到下拉框
@@ -347,11 +647,17 @@
 
                 if (result.ok && result.data.list) {
                     const select = document.getElementById('promptSelect');
+                    const ratingSelect = document.getElementById('ratingPromptSelect');
                     result.data.list.forEach(prompt => {
                         const option = document.createElement('option');
                         option.value = prompt.id;
                         option.textContent = prompt.name;
                         select.appendChild(option);
+
+                        const ratingOption = document.createElement('option');
+                        ratingOption.value = prompt.id;
+                        ratingOption.textContent = prompt.name;
+                        ratingSelect.appendChild(ratingOption);
                     });
                 }
             } catch (error) {
@@ -404,13 +710,15 @@
                     document.getElementById('completionTokens').textContent = formatTokenCount(data.completion_tokens);
                     document.getElementById('totalTokens').textContent = formatTokenCount(data.total_tokens);
                     document.getElementById('latency').textContent = formatLatency(data.latency);
-                    document.getElementById('tokenStats').style.display = 'grid';
+                    document.getElementById('tokenStats').style.display = 'flex';
 
                     // 显示评分区域（仅当使用了Prompt时）
                     if (promptId > 0) {
                         currentConversationId = data.conversation_id;
                         currentPromptId = promptId;
+                        currentStarRating = 0;
                         currentRating = 0;
+                        document.getElementById('ratingSceneName').value = '';
                         resetStars();
                         document.getElementById('ratingSection').classList.remove('hidden');
                     }
@@ -435,49 +743,103 @@
             }
         }
 
-        // 清空对话
+        /**
+         * 清空对话状态
+         */
         function clearChat() {
             document.getElementById('userQuestion').value = '';
             document.getElementById('assistantReply').className = 'message-box empty';
             document.getElementById('assistantReply').textContent = '等待您的问题...';
             document.getElementById('tokenStats').style.display = 'none';
             document.getElementById('ratingSection').classList.add('hidden');
+            document.getElementById('ratingSceneName').value = '';
+            document.getElementById('scoreInput').value = '0';
             currentConversationId = null;
             currentPromptId = null;
+            currentStarRating = 0;
             currentRating = 0;
+            resetStars();
         }
 
-        // 星级评分
-        function rate(score) {
-            currentRating = score * 2; // 转换为0-10分制
-            updateStars(score);
+        /**
+         * 处理星级点击事件
+         * @param {Event} event - 点击事件
+         * @param {number} index - 星级索引 (1-5)
+         */
+        function handleStarClick(event, index) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const isHalf = offsetX < rect.width / 2;
+            // 星级评分 1-5，转换为实际分数 2-10 (每星2分)
+            const starValue = index - (isHalf ? 0.5 : 0);
+            const score = starValue * 2;  // 直接使用0-10分
+            setStarRating(starValue, score);
         }
 
-        function updateStars(score) {
+        /**
+         * 设置星级评分
+         * @param {number} starValue - 星级值 (0-5)
+         * @param {number} score - 实际分数 (0-10)
+         */
+        function setStarRating(starValue, score) {
+            currentStarRating = starValue;
+            currentRating = score;
+            updateStars();
+            // 同步更新分数输入框
+            document.getElementById('scoreInput').value = score.toFixed(1);
+        }
+
+        /**
+         * 分数输入框变化时更新星级显示
+         * @param {string} value - 输入的分数值
+         */
+        function onScoreInputChange(value) {
+            let score = parseFloat(value);
+            // 验证分数范围
+            if (isNaN(score) || score < 0) score = 0;
+            if (score > 10) score = 10;
+            // 更新分数输入框显示标准值
+            document.getElementById('scoreInput').value = score.toFixed(1);
+            // 计算对应星级并更新状态
+            currentStarRating = score / 2;
+            currentRating = score;
+            updateStars();
+        }
+
+        /**
+         * 更新星级显示
+         */
+        function updateStars() {
             const stars = document.querySelectorAll('.star');
             stars.forEach((star, index) => {
-                if (index < score) {
-                    star.classList.remove('empty');
-                    star.classList.add('filled');
-                } else {
-                    star.classList.remove('filled');
-                    star.classList.add('empty');
+                const fill = Math.min(Math.max(currentStarRating - index, 0), 1);
+                const fillEl = star.querySelector('.star-fill');
+                if (fillEl) {
+                    fillEl.style.width = `${fill * 100}%`;
                 }
             });
         }
 
+        /**
+         * 重置星级评分
+         */
         function resetStars() {
-            const stars = document.querySelectorAll('.star');
-            stars.forEach(star => {
-                star.classList.remove('filled');
-                star.classList.add('empty');
-            });
+            currentStarRating = 0;
+            currentRating = 0;
+            updateStars();
+            document.getElementById('scoreInput').value = '0';
         }
 
-        // 提交快捷评分
+        /**
+         * 提交快捷评分
+         */
         async function submitQuickRating() {
-            if (currentRating === 0) {
-                showToast('请先选择评分', 'error');
+            // 验证分数
+            const scoreInput = document.getElementById('scoreInput');
+            const score = parseFloat(scoreInput.value);
+
+            if (isNaN(score) || score < 0 || score > 10) {
+                showToast('请输入有效的分数(0-10)', 'error');
                 return;
             }
 
@@ -486,15 +848,25 @@
                 return;
             }
 
+            const sceneName = document.getElementById('ratingSceneName').value.trim();
+            if (!sceneName) {
+                showToast('请填写场景名称', 'error');
+                return;
+            }
+
             try {
                 const result = await apiPost(`/prompt/${currentPromptId}/rating`, {
-                    scene_name: '单次问答',
-                    score: currentRating
+                    scene_name: sceneName,
+                    score: score,  // 直接使用0-10分数
+                    conversation_id: currentConversationId
                 });
 
                 if (result.ok) {
                     showToast('评分提交成功', 'success');
                     document.getElementById('ratingSection').classList.add('hidden');
+                    // 刷新场景列表和评分列表
+                    loadSceneNameList();
+                    loadRatingList();
                 } else {
                     showToast(result.message || '评分提交失败', 'error');
                 }
@@ -519,7 +891,119 @@
             }
         }
 
-        // 渲染历史记录
+        /**
+         * 渲染评分明细表格
+         * @param {Array} list - 评分列表数据
+         * @param {string} containerId - 容器元素ID
+         */
+        function renderRatingTable(list, containerId) {
+            const container = document.getElementById(containerId);
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div class="loading">暂无评分记录</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="table-container">
+                    <table class="rating-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Prompt</th>
+                                <th>场景</th>
+                                <th>评分</th>
+                                <th>对话</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.map(item => `
+                                <tr>
+                                    <td>${item.id}</td>
+                                    <td>${escapeHtml(item.prompt_name || '-')}</td>
+                                    <td>${escapeHtml(item.scene_name)}</td>
+                                    <td>${item.score.toFixed(1)}</td>
+                                    <td>
+                                        ${item.conversation_id ?
+                                            `<button class="btn-view-conv" onclick="viewConversation(${item.conversation_id})" title="查看对话详情">
+                                                #${item.conversation_id} 👁️
+                                            </button>` :
+                                            '-'}
+                                    </td>
+                                    <td>${formatDate(item.created_at)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        /**
+         * 加载评分明细列表
+         */
+        async function loadRatingList() {
+            const promptId = document.getElementById('ratingPromptSelect').value;
+            // 优先使用下拉选择的场景，其次使用手动输入的场景
+            const sceneSelect = document.getElementById('ratingSceneSelect').value;
+            const sceneFilter = document.getElementById('ratingSceneFilter').value.trim();
+            const sceneName = sceneSelect || sceneFilter;
+
+            const params = new URLSearchParams();
+            params.set('page', ratingPage.toString());
+            params.set('page_size', ratingPageSize.toString());
+            if (promptId) {
+                params.set('prompt_id', promptId);
+            }
+            if (sceneName) {
+                params.set('scene_name', sceneName);
+            }
+
+            try {
+                const result = await apiGet(`/prompt/rating/list?${params.toString()}`);
+                if (result.ok) {
+                    renderRatingTable(result.data.list, 'ratingList');
+                    updateRatingPagination(result.data);
+                } else {
+                    showToast(result.message || '加载评分明细失败', 'error');
+                }
+            } catch (error) {
+                showToast('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        function updateRatingPagination(data) {
+            ratingTotalPages = Math.ceil(data.total / ratingPageSize) || 1;
+            document.getElementById('ratingPageInfo').textContent = `第 ${ratingPage} / ${ratingTotalPages} 页 (共 ${data.total} 条)`;
+            document.getElementById('ratingPrevPage').disabled = ratingPage <= 1;
+            document.getElementById('ratingNextPage').disabled = ratingPage >= ratingTotalPages;
+        }
+
+        async function loadConversationRatings(conversationId, promptId) {
+            const params = new URLSearchParams();
+            params.set('page', '1');
+            params.set('page_size', '10');
+            params.set('conversation_id', conversationId.toString());
+            if (promptId) {
+                params.set('prompt_id', promptId.toString());
+            }
+
+            try {
+                const result = await apiGet(`/prompt/rating/list?${params.toString()}`);
+                if (result.ok) {
+                    renderRatingTable(result.data.list, 'conversationRatingList');
+                } else {
+                    document.getElementById('conversationRatingList').innerHTML = '<div class="loading">评分记录加载失败</div>';
+                }
+            } catch (error) {
+                document.getElementById('conversationRatingList').innerHTML = '<div class="loading">评分记录加载失败</div>';
+            }
+        }
+
+        /**
+         * 渲染对话历史列表
+         * @param {Object} data - 分页数据
+         */
         function renderHistory(data) {
             const historyList = document.getElementById('historyList');
 
@@ -534,10 +1018,13 @@
 
             historyList.innerHTML = data.list.map(conv => {
                 const promptName = conv.prompt ? conv.prompt.name : '无Prompt';
+                // 显示traceId，如果存在的话
+                const traceIdDisplay = conv.trace_id ?
+                    `<span class="history-trace-id" title="Trace ID: ${escapeHtml(conv.trace_id)}">${escapeHtml(conv.trace_id.substring(0, 8))}...</span>` : '';
                 return `
                     <div class="history-item" onclick="viewConversation(${conv.id})">
                         <div class="history-header">
-                            <div class="history-prompt">${escapeHtml(promptName)}</div>
+                            <div class="history-prompt">${escapeHtml(promptName)}${traceIdDisplay}</div>
                             <div class="history-date">${formatDate(conv.created_at)}</div>
                         </div>
                         <div class="history-question">
@@ -561,7 +1048,10 @@
             document.getElementById('nextPage').disabled = currentPage >= totalPages;
         }
 
-        // 查看对话详情
+        /**
+         * 查看对话详情
+         * @param {number} id - 对话ID
+         */
         async function viewConversation(id) {
             try {
                 const result = await apiGet(`/conversation/${id}`);
@@ -571,6 +1061,10 @@
                     const promptInfo = conv.prompt ?
                         `<span class="prompt-badge">${escapeHtml(conv.prompt.name)}</span>` :
                         '<span class="prompt-badge" style="background: #f0f0f0; color: #666;">无Prompt</span>';
+
+                    // 显示traceId信息
+                    const traceIdInfo = conv.trace_id ?
+                        `<p><strong>Trace ID：</strong><code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;">${escapeHtml(conv.trace_id)}</code></p>` : '';
 
                     document.getElementById('detailContent').innerHTML = `
                         <div class="form-group">
@@ -607,13 +1101,19 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>评分记录</label>
+                            <div id="conversationRatingList"><div class="loading">加载中...</div></div>
+                        </div>
+                        <div class="form-group">
                             <label>其他信息</label>
                             <p><strong>模型：</strong>${escapeHtml(conv.model)}</p>
+                            ${traceIdInfo}
                             <p><strong>时间：</strong>${formatDate(conv.created_at)}</p>
                         </div>
                     `;
 
                     document.getElementById('detailModal').classList.add('active');
+                    loadConversationRatings(conv.id, conv.prompt ? conv.prompt.id : null);
                 } else {
                     showToast(result.message || '加载失败', 'error');
                 }
@@ -622,9 +1122,117 @@
             }
         }
 
-        // 关闭详情Modal
+        /**
+         * 关闭对话详情Modal
+         */
         function closeDetailModal() {
             document.getElementById('detailModal').classList.remove('active');
+        }
+
+        /**
+         * 加载场景名称列表，用于自动完成和下拉选择
+         */
+        async function loadSceneNameList() {
+            try {
+                // 尝试从评分列表获取不同的场景名称
+                const result = await apiGet('/prompt/rating/list?page=1&page_size=100');
+                if (result.ok && result.data.list) {
+                    // 提取唯一的场景名称
+                    const scenes = [...new Set(result.data.list.map(item => item.scene_name).filter(Boolean))];
+                    sceneNameList = scenes;
+
+                    // 更新场景下拉选择框
+                    const sceneSelect = document.getElementById('ratingSceneSelect');
+                    if (sceneSelect) {
+                        // 保留第一个"全部场景"选项
+                        sceneSelect.innerHTML = '<option value="">全部场景</option>';
+                        scenes.forEach(scene => {
+                            const option = document.createElement('option');
+                            option.value = scene;
+                            option.textContent = scene;
+                            sceneSelect.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load scene names:', error);
+            }
+        }
+
+        /**
+         * 设置场景输入框事件
+         */
+        function setupSceneInputEvents() {
+            // 点击外部关闭建议列表
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.scene-input-wrapper')) {
+                    hideSuggestions();
+                }
+            });
+        }
+
+        /**
+         * 显示场景建议列表
+         */
+        function showSceneSuggestions() {
+            const suggestions = document.getElementById('sceneSuggestions');
+            if (sceneNameList.length > 0) {
+                renderSceneSuggestions(sceneNameList);
+                suggestions.classList.add('show');
+            }
+        }
+
+        /**
+         * 隐藏场景建议列表
+         */
+        function hideSuggestions() {
+            const suggestions = document.getElementById('sceneSuggestions');
+            suggestions.classList.remove('show');
+        }
+
+        /**
+         * 过滤场景建议
+         */
+        function filterSceneSuggestions() {
+            const input = document.getElementById('ratingSceneName');
+            const value = input.value.trim().toLowerCase();
+
+            if (!value) {
+                renderSceneSuggestions(sceneNameList);
+            } else {
+                const filtered = sceneNameList.filter(scene =>
+                    scene.toLowerCase().includes(value)
+                );
+                renderSceneSuggestions(filtered);
+            }
+
+            const suggestions = document.getElementById('sceneSuggestions');
+            suggestions.classList.add('show');
+        }
+
+        /**
+         * 渲染场景建议列表
+         * @param {Array} scenes - 场景名称数组
+         */
+        function renderSceneSuggestions(scenes) {
+            const suggestions = document.getElementById('sceneSuggestions');
+            if (scenes.length === 0) {
+                suggestions.innerHTML = '<div class="scene-suggestion-item" style="color:#999;">暂无匹配场景</div>';
+                return;
+            }
+
+            suggestions.innerHTML = scenes.map(scene =>
+                `<div class="scene-suggestion-item" onclick="selectScene('${escapeJs(scene)}')">${escapeHtml(scene)}</div>`
+            ).join('');
+        }
+
+        /**
+         * 选择场景
+         * @param {string} scene - 场景名称
+         */
+        function selectScene(scene) {
+            document.getElementById('ratingSceneName').value = scene;
+            hideSuggestions();
         }
     </script>
 </body>

@@ -37,3 +37,11 @@ var to003 = migrate.NewMigration("0.0.3", func(tx *gorm.DB) error {
 	}
 	return nil
 })
+
+// to004 评分明细补充，扩展prompt_ratings字段
+var to004 = migrate.NewMigration("0.0.4", func(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&model.PromptRating{}); err != nil {
+		return err
+	}
+	return nil
+})
