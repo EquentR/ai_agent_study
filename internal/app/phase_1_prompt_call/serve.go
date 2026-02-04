@@ -22,7 +22,7 @@ func Serve(c *config.Config) {
 	db.Init(&c.Sqlite)
 
 	// 迁移表结构
-	phase1migrate.Bootstrap("0.0.1")
+	phase1migrate.Bootstrap("0.0.4")
 
 	// 初始化路由
 	gin.SetMode(gin.ReleaseMode)

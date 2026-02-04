@@ -15,6 +15,7 @@ func ConversationRegister(apiGroup *gin.RouterGroup) {
 	resp.HandlerWrapper(apiGroup, "conversation",
 		[]*resp.Handler{
 			resp.NewJsonHandler(handleChat),
+			resp.NewHandler(http.MethodPost, "/chat/stream", handleChatStream),
 			resp.NewJsonHandler(handleListConversations),
 			resp.NewJsonHandler(handleGetConversation),
 		})
@@ -64,6 +65,57 @@ func handleChat() (string, string, resp.JsonResultWrapper, []resp.WrapperOption)
 
 		return chatResp, nil
 	}, nil
+}
+
+// handleChatStream
+//
+//	@Summary		流式问答
+//	@Description	选择Prompt进行流式问答，通过SSE返回流式内容和统计信息
+//	@Tags			conversation
+//	@Accept			json
+//	@Produce		text/event-stream
+//	@Param			body	body	ChatReq	true	"问答请求"
+//	@Router			/conversation/chat/stream [post]
+//	@Success		200	{object}	phase1logic.ChatStreamResponse
+func handleChatStream(c *gin.Context) {
+	var req ChatReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 设置SSE响应头
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 调用业务逻辑，通过回调函数发送流式内容
+	finalResp, err := phase1logic.CreateChatStream(c.Request.Context(), phase1logic.ChatRequest{
+		PromptID: req.PromptID,
+		Question: req.Question,
+		Model:    req.Model,
+	}, func(chunk string) bool {
+		// 发送流式内容片段
+		chunkResp := phase1logic.ChatStreamResponse{
+			Chunk: chunk,
+			Done:  false,
+		}
+		c.SSEvent("message", chunkResp)
+		c.Writer.Flush()
+		return true
+	})
+
+	if err != nil {
+		// 发送错误信息
+		c.SSEvent("error", gin.H{"error": err.Error()})
+		c.Writer.Flush()
+		return
+	}
+
+	// 发送最终统计信息
+	c.SSEvent("message", finalResp)
+	c.Writer.Flush()
 }
 
 // handleListConversations

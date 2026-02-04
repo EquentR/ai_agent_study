@@ -37,6 +37,122 @@ type ChatResponse struct {
 	Latency          int64  `json:"latency"`           // 响应延迟(毫秒)
 }
 
+// ChatStreamResponse 流式问答响应数据
+type ChatStreamResponse struct {
+	ConversationID   uint   `json:"conversation_id,omitempty"`   // 对话ID（仅在最后一条消息中返回）
+	Chunk            string `json:"chunk,omitempty"`             // 流式内容片段
+	Done             bool   `json:"done"`                        // 是否结束
+	PromptTokens     int64  `json:"prompt_tokens,omitempty"`     // Prompt Token数（仅在最后一条消息中返回）
+	CompletionTokens int64  `json:"completion_tokens,omitempty"` // Completion Token数（仅在最后一条消息中返回）
+	TotalTokens      int64  `json:"total_tokens,omitempty"`      // 总Token数（仅在最后一条消息中返回）
+	Latency          int64  `json:"latency,omitempty"`           // 响应延迟(毫秒)（仅在最后一条消息中返回）
+	TotalLatency     int64  `json:"total_latency,omitempty"`     // 总延迟(毫秒)（仅在最后一条消息中返回）
+}
+
+// CreateChatStream 创建流式问答对话
+// 参数:
+//   - ctx: 上下文
+//   - req: 问答请求
+//   - onChunk: 接收流式内容的回调函数，返回false表示中止流式传输
+//
+// 返回:
+//   - *ChatStreamResponse: 最终响应（包含conversation_id和统计信息）
+//   - error: 错误信息
+func CreateChatStream(ctx context.Context, req ChatRequest, onChunk func(chunk string) bool) (*ChatStreamResponse, error) {
+	// 参数校验
+	if req.Question == "" {
+		return nil, ErrEmptyQuestion
+	}
+
+	// 设置默认模型
+	if req.Model == "" {
+		req.Model = "kimi-k2.5"
+	}
+
+	// 构建消息列表
+	messages := []llmModel.Message{
+		{Role: llmModel.MessageUser, Content: req.Question},
+	}
+
+	// 如果指定了Prompt，添加system message
+	var promptID uint = 0
+	if req.PromptID > 0 {
+		prompt, err := GetPromptByID(req.PromptID)
+		if err != nil {
+			return nil, err
+		}
+		promptID = prompt.ID
+		// system message放在user message之后
+		messages = append(messages, llmModel.Message{
+			Role:    llmModel.MessageSystem,
+			Content: prompt.Content,
+		})
+	}
+
+	// 调用LLM流式接口
+	llmClient := openai.NewOpenAiClient(
+		os.Getenv("OPENAI_BASE_URL"),
+		os.Getenv("OPENAI_API_KEY"),
+	)
+
+	chatReq := llmModel.ChatRequest{
+		Model:     req.Model,
+		Messages:  messages,
+		MaxTokens: 2048,
+		TraceID:   uuid.New().String(),
+	}
+
+	stream, err := llmClient.ChatStream(ctx, chatReq)
+	if err != nil {
+		return nil, ErrLLMCallFailed
+	}
+	defer stream.Close()
+
+	// 接收流式内容
+	var fullContent string
+	for {
+		chunk, err := stream.Recv()
+		if err != nil || chunk == "" {
+			break
+		}
+		fullContent += chunk
+		// 调用回调函数发送chunk
+		if !onChunk(chunk) {
+			break
+		}
+	}
+
+	// 获取统计信息
+	stats := stream.Stats()
+
+	// 保存对话记录到数据库
+	conversation := &model.Conversation{
+		PromptID:         promptID,
+		UserQuestion:     req.Question,
+		AssistantReply:   fullContent,
+		PromptTokens:     stats.Usage.PromptTokens,
+		CompletionTokens: stats.Usage.CompletionTokens,
+		TotalTokens:      stats.Usage.TotalTokens,
+		Latency:          stats.TotalLatency.Milliseconds(),
+		Model:            req.Model,
+	}
+
+	if err := db.DB().Create(conversation).Error; err != nil {
+		return nil, err
+	}
+
+	// 返回最终响应
+	return &ChatStreamResponse{
+		ConversationID:   conversation.ID,
+		Done:             true,
+		PromptTokens:     stats.Usage.PromptTokens,
+		CompletionTokens: stats.Usage.CompletionTokens,
+		TotalTokens:      stats.Usage.TotalTokens,
+		Latency:          stats.TTFT.Milliseconds(),
+		TotalLatency:     stats.TotalLatency.Milliseconds(),
+	}, nil
+}
+
 // CreateChat 创建单次问答对话
 // 参数:
 //   - req: 问答请求

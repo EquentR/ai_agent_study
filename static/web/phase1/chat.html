@@ -68,6 +68,7 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             line-height: 1.6;
+            max-height: 500px;
         }
 
         .message-box.empty {
@@ -390,6 +391,34 @@
             font-size: 12px;
             margin-left: 8px;
         }
+
+        /* AI回复卡片头部布局与复制按钮样式 */
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .btn-copy {
+            padding: 6px 10px;
+            font-size: 12px;
+            background: #f0f4ff;
+            color: #3b5bdb;
+            border: 1px solid #dbe4ff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .btn-copy:hover {
+            background: #e7f0ff;
+        }
+
+        .btn-copy:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -436,7 +465,10 @@
             <!-- 右侧：回复区 -->
             <div class="chat-section">
                 <div class="card">
-                    <h2 class="card-title">🤖 AI 回复</h2>
+                    <div class="card-header">
+                        <h2 class="card-title">🤖 AI 回复</h2>
+                        <button type="button" class="btn-copy" id="copyReplyBtn" onclick="copyAssistantReply()">复制</button>
+                    </div>
                     <div id="assistantReply" class="message-box empty">等待您的问题...</div>
 
                     <!-- Token统计 -->
@@ -445,6 +477,7 @@
                         <span class="token-stat">Completion: <span id="completionTokens">-</span></span>
                         <span class="token-stat">Total: <span id="totalTokens">-</span></span>
                         <span class="token-stat">延迟: <span id="latency">-</span></span>
+                        <span class="token-stat">总耗时: <span id="totalLatency">-</span></span>
                     </div>
 
                     <!-- 快捷评分区域 - 对话完成后显示 -->
@@ -688,50 +721,110 @@
 
             // 显示等待状态
             const replyBox = document.getElementById('assistantReply');
-            replyBox.className = 'message-box empty';
-            replyBox.textContent = '🤔 AI 正在思考...';
+            replyBox.className = 'message-box';
+            replyBox.textContent = '';
 
             try {
-                const result = await apiPost('/conversation/chat', {
-                    prompt_id: promptId,
-                    question: question,
-                    model: 'kimi-k2.5'
+                // 使用fetch进行流式请求
+                const response = await fetch(API_BASE_URL+'/conversation/chat/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt_id: promptId,
+                        question: question,
+                        model: 'kimi-k2.5'
+                    })
                 });
 
-                if (result.ok) {
-                    const data = result.data;
-
-                    // 显示回复
-                    replyBox.className = 'message-box';
-                    replyBox.textContent = data.reply;
-
-                    // 显示Token统计
-                    document.getElementById('promptTokens').textContent = formatTokenCount(data.prompt_tokens);
-                    document.getElementById('completionTokens').textContent = formatTokenCount(data.completion_tokens);
-                    document.getElementById('totalTokens').textContent = formatTokenCount(data.total_tokens);
-                    document.getElementById('latency').textContent = formatLatency(data.latency);
-                    document.getElementById('tokenStats').style.display = 'flex';
-
-                    // 显示评分区域（仅当使用了Prompt时）
-                    if (promptId > 0) {
-                        currentConversationId = data.conversation_id;
-                        currentPromptId = promptId;
-                        currentStarRating = 0;
-                        currentRating = 0;
-                        document.getElementById('ratingSceneName').value = '';
-                        resetStars();
-                        document.getElementById('ratingSection').classList.remove('hidden');
-                    }
-
-                    // 刷新历史记录
-                    loadConversationHistory();
-
-                    showToast('问答完成', 'success');
-                } else {
-                    replyBox.className = 'message-box';
-                    replyBox.textContent = '❌ ' + (result.message || '请求失败，请稍后重试');
-                    showToast(result.message || '请求失败', 'error');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
+                // 解析SSE流
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullReply = '';
+                let conversationId = null;
+                let tokenStats = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留不完整的行
+
+                    for (const line of lines) {
+                        if (line.startsWith('event:')) {
+                            continue;
+                        }
+                        if (line.startsWith('data:')) {
+                            const data = line.substring(5).trim();
+                            if (data) {
+                                try {
+                                    const parsed = JSON.parse(data);
+
+                                    // 处理错误事件
+                                    if (parsed.error) {
+                                        throw new Error(parsed.error);
+                                    }
+
+                                    // 处理流式内容
+                                    if (parsed.chunk) {
+                                        fullReply += parsed.chunk;
+                                        replyBox.textContent = fullReply;
+                                        scrollReplyToBottom();
+                                    }
+
+                                    // 处理最终响应（包含统计信息）
+                                    if (parsed.done) {
+                                        conversationId = parsed.conversation_id;
+                                        tokenStats = {
+                                            prompt_tokens: parsed.prompt_tokens,
+                                            completion_tokens: parsed.completion_tokens,
+                                            total_tokens: parsed.total_tokens,
+                                            latency: parsed.latency,
+                                            total_latency: parsed.total_latency
+                                        };
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to parse SSE data:', e);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 显示Token统计
+                if (tokenStats) {
+                    document.getElementById('promptTokens').textContent = formatTokenCount(tokenStats.prompt_tokens);
+                    document.getElementById('completionTokens').textContent = formatTokenCount(tokenStats.completion_tokens);
+                    document.getElementById('totalTokens').textContent = formatTokenCount(tokenStats.total_tokens);
+                    document.getElementById('latency').textContent = formatLatency(tokenStats.latency);
+                    document.getElementById('totalLatency').textContent = formatLatency(tokenStats.total_latency);
+                    document.getElementById('tokenStats').style.display = 'flex';
+                }
+
+                // 显示评分区域（仅当使用了Prompt时）
+                if (promptId > 0 && conversationId) {
+                    currentConversationId = conversationId;
+                    currentPromptId = promptId;
+                    currentStarRating = 0;
+                    currentRating = 0;
+                    document.getElementById('ratingSceneName').value = '';
+                    resetStars();
+                    document.getElementById('ratingSection').classList.remove('hidden');
+                }
+
+                // 刷新历史记录
+                loadConversationHistory();
+
+                showToast('问答完成', 'success');
+
             } catch (error) {
                 replyBox.className = 'message-box';
                 replyBox.textContent = '❌ 网络错误：' + error.message;
@@ -740,6 +833,46 @@
                 // 恢复按钮状态
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
+            }
+        }
+
+        /**
+         * 保持回复框滚动在底部
+         */
+        function scrollReplyToBottom() {
+            const replyBox = document.getElementById('assistantReply');
+            replyBox.scrollTop = replyBox.scrollHeight;
+        }
+
+        /**
+         * 复制AI回复内容
+         */
+        async function copyAssistantReply() {
+            const replyBox = document.getElementById('assistantReply');
+            const text = replyBox.textContent.trim();
+
+            if (!text || replyBox.classList.contains('empty')) {
+                showToast('暂无可复制内容', 'error');
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.setAttribute('readonly', '');
+                    textarea.style.position = 'absolute';
+                    textarea.style.left = '-9999px';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+                showToast('已复制到剪贴板', 'success');
+            } catch (error) {
+                showToast('复制失败: ' + error.message, 'error');
             }
         }
 
