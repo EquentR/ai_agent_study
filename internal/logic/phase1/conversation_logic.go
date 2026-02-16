@@ -102,6 +102,9 @@ func CreateChatStream(ctx context.Context, req ChatRequest, onChunk func(chunk s
 		TraceID:   uuid.New().String(),
 	}
 
+	chatReq.Sampling.SetTemperature(0)
+	chatReq.Sampling.SetTopP(1.0)
+
 	stream, err := llmClient.ChatStream(ctx, chatReq)
 	if err != nil {
 		return nil, ErrLLMCallFailed

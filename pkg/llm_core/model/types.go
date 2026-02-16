@@ -11,6 +11,14 @@ const (
 type Message struct {
 	Role    string
 	Content string
+	// Attachments supports image/text files for multimodal requests.
+	Attachments []Attachment
+}
+
+type Attachment struct {
+	FileName string
+	MimeType string
+	Data     []byte
 }
 
 type ChatRequest struct {

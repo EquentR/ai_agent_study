@@ -26,12 +26,9 @@ func NewOpenAiClient(baseUrl, apiKey string) *Client {
 func (c *Client) Chat(ctx context.Context, req model.ChatRequest) (model.ChatResponse, error) {
 	start := time.Now()
 
-	msgs := make([]openai.ChatCompletionMessage, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		msgs = append(msgs, openai.ChatCompletionMessage{
-			Role:    m.Role,
-			Content: m.Content,
-		})
+	msgs, _, err := buildOpenAIMessages(req.Messages)
+	if err != nil {
+		return model.ChatResponse{}, err
 	}
 
 	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
@@ -58,15 +55,10 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 	start := time.Now()
 	streamCtx, cancel := context.WithCancel(ctx)
 
-	msgs := make([]openai.ChatCompletionMessage, 0, len(req.Messages))
-	// 计算prompt tokens
-	promptMessages := make([]string, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		msgs = append(msgs, openai.ChatCompletionMessage{
-			Role:    m.Role,
-			Content: m.Content,
-		})
-		promptMessages = append(promptMessages, m.Content)
+	msgs, promptMessages, err := buildOpenAIMessages(req.Messages)
+	if err != nil {
+		cancel()
+		return nil, err
 	}
 	oaiReq := openai.ChatCompletionRequest{
 		Model:               req.Model,
