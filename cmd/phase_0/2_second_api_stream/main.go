@@ -17,8 +17,8 @@ func main() {
 		model.ChatRequest{
 			Model: "kimi-k2.5",
 			Messages: []model.Message{
-				{Role: model.MessageUser, Content: "介绍一下LLM中的TopP参数基本概念，与温度参数有何区别？它们应该如何设置？"},
-				{Role: model.MessageSystem, Content: "你是一个资深的AI模型专家，请根据用户的需求，" +
+				{Role: model.RoleUser, Content: "介绍一下LLM中的TopP参数基本概念，与温度参数有何区别？它们应该如何设置？"},
+				{Role: model.RoleSystem, Content: "你是一个资深的AI模型专家，请根据用户的需求，" +
 					"详细解释LLM的相关知识。此外，请确保回答内容准确且专业。最后，请根据用户提问的语言进行回答。"},
 			},
 			MaxTokens: 2048,

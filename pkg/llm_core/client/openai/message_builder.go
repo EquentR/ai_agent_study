@@ -16,10 +16,14 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 	promptMessages := make([]string, 0, len(messages))
 
 	for _, m := range messages {
+		toolCalls := modelToolCallsToOpenAI(m.ToolCalls)
+
 		if len(m.Attachments) == 0 {
 			msgs = append(msgs, openai.ChatCompletionMessage{
-				Role:    m.Role,
-				Content: m.Content,
+				Role:       m.Role,
+				Content:    m.Content,
+				ToolCalls:  toolCalls,
+				ToolCallID: m.ToolCallId,
 			})
 			promptMessages = append(promptMessages, m.Content)
 			continue
@@ -46,7 +50,11 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 			}
 		}
 
-		msg := openai.ChatCompletionMessage{Role: m.Role}
+		msg := openai.ChatCompletionMessage{
+			Role:       m.Role,
+			ToolCalls:  toolCalls,
+			ToolCallID: m.ToolCallId,
+		}
 		if len(parts) > 0 {
 			msg.MultiContent = parts
 		} else {
@@ -57,6 +65,26 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 	}
 
 	return msgs, promptMessages, nil
+}
+
+func modelToolCallsToOpenAI(toolCalls []model.ToolCall) []openai.ToolCall {
+	if len(toolCalls) == 0 {
+		return nil
+	}
+
+	result := make([]openai.ToolCall, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		result = append(result, openai.ToolCall{
+			ID:   tc.ID,
+			Type: openai.ToolTypeFunction,
+			Function: openai.FunctionCall{
+				Name:      tc.Name,
+				Arguments: tc.Arguments,
+			},
+		})
+	}
+
+	return result
 }
 
 func toChatMessagePart(attachment model.Attachment) (openai.ChatMessagePart, string, error) {

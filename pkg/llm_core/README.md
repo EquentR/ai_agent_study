@@ -10,6 +10,12 @@
 
 不传附件时，原有文本消息调用方式保持不变。
 
+## Tool Call（非流式 Chat）
+
+- `ChatRequest.Tools` / `ChatRequest.ToolChoice` 会透传到 OpenAI Chat Completions
+- `ChatRequest.Messages` 中的 `assistant.ToolCalls` 与 `tool.ToolCallId` 会按 OpenAI 字段映射
+- `ChatResponse.ToolCalls` 返回模型产生的工具调用（函数名、参数、调用 ID）
+
 ### tools
 
 定义 LLM 交互所需的数据结构、接口和类型。

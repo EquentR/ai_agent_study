@@ -14,8 +14,8 @@ func main() {
 		model.ChatRequest{
 			Model: "kimi-k2.5",
 			Messages: []model.Message{
-				{Role: model.MessageUser, Content: "帮我写一个golang的helloworld程序"},
-				{Role: model.MessageSystem, Content: "你是一个资深的golang程序员，请根据用户的需求，" +
+				{Role: model.RoleUser, Content: "帮我写一个golang的helloworld程序"},
+				{Role: model.RoleSystem, Content: "你是一个资深的golang程序员，请根据用户的需求，" +
 					"生成对应的代码和注释，不需要过多解释。此外，请确保代码可以直接运行。最后，请根据用户提问的语言进行回答。"},
 			},
 			MaxTokens: 1024,

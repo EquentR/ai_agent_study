@@ -71,7 +71,7 @@ func CreateChatStream(ctx context.Context, req ChatRequest, onChunk func(chunk s
 
 	// 构建消息列表
 	messages := []llmModel.Message{
-		{Role: llmModel.MessageUser, Content: req.Question},
+		{Role: llmModel.RoleUser, Content: req.Question},
 	}
 
 	// 如果指定了Prompt，添加system message
@@ -84,7 +84,7 @@ func CreateChatStream(ctx context.Context, req ChatRequest, onChunk func(chunk s
 		promptID = prompt.ID
 		// system message放在user message之后
 		messages = append(messages, llmModel.Message{
-			Role:    llmModel.MessageSystem,
+			Role:    llmModel.RoleSystem,
 			Content: prompt.Content,
 		})
 	}
@@ -176,7 +176,7 @@ func CreateChat(req ChatRequest) (*ChatResponse, error) {
 
 	// 构建消息列表
 	messages := []llmModel.Message{
-		{Role: llmModel.MessageUser, Content: req.Question},
+		{Role: llmModel.RoleUser, Content: req.Question},
 	}
 
 	// 如果指定了Prompt，添加system message
@@ -189,7 +189,7 @@ func CreateChat(req ChatRequest) (*ChatResponse, error) {
 		promptID = prompt.ID
 		// system message放在user message之后（根据phase_0示例）
 		messages = append(messages, llmModel.Message{
-			Role:    llmModel.MessageSystem,
+			Role:    llmModel.RoleSystem,
 			Content: prompt.Content,
 		})
 	}

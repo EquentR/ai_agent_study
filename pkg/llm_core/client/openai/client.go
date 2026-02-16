@@ -4,6 +4,7 @@ import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/llm_core/tools"
 	"context"
+	"errors"
 	"time"
 
 	"github.com/sashabaranov/go-openai"
@@ -26,29 +27,130 @@ func NewOpenAiClient(baseUrl, apiKey string) *Client {
 func (c *Client) Chat(ctx context.Context, req model.ChatRequest) (model.ChatResponse, error) {
 	start := time.Now()
 
-	msgs, _, err := buildOpenAIMessages(req.Messages)
+	oaiReq, err := buildChatCompletionRequest(req)
 	if err != nil {
 		return model.ChatResponse{}, err
 	}
 
-	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	resp, err := c.client.CreateChatCompletion(ctx, oaiReq)
+	if err != nil {
+		return model.ChatResponse{}, err
+	}
+
+	out, err := extractChatResponse(resp)
+	if err != nil {
+		return model.ChatResponse{}, err
+	}
+	out.Latency = time.Since(start)
+
+	return out, nil
+}
+
+func buildChatCompletionRequest(req model.ChatRequest) (openai.ChatCompletionRequest, error) {
+	msgs, _, err := buildOpenAIMessages(req.Messages)
+	if err != nil {
+		return openai.ChatCompletionRequest{}, err
+	}
+
+	oaiReq := openai.ChatCompletionRequest{
 		Model:               req.Model,
 		Messages:            msgs,
 		MaxCompletionTokens: int(req.MaxTokens),
-	})
+		Tools:               modelToolsToOpenAI(req.Tools),
+	}
+
+	toolChoice, err := modelToolChoiceToOpenAI(req.ToolChoice)
 	if err != nil {
-		return model.ChatResponse{}, err
+		return openai.ChatCompletionRequest{}, err
+	}
+	if toolChoice != nil {
+		oaiReq.ToolChoice = toolChoice
+	}
+
+	if req.Sampling.Temperature != nil {
+		oaiReq.Temperature = *req.Sampling.Temperature
+	}
+	if req.Sampling.TopP != nil {
+		oaiReq.TopP = *req.Sampling.TopP
+	}
+
+	return oaiReq, nil
+}
+
+func extractChatResponse(resp openai.ChatCompletionResponse) (model.ChatResponse, error) {
+	if len(resp.Choices) == 0 {
+		return model.ChatResponse{}, errors.New("openai chat completion returned no choices")
+	}
+
+	msg := resp.Choices[0].Message
+	toolCalls := make([]model.ToolCall, 0, len(msg.ToolCalls))
+	for _, tc := range msg.ToolCalls {
+		if tc.Type != "" && tc.Type != openai.ToolTypeFunction {
+			continue
+		}
+		toolCalls = append(toolCalls, model.ToolCall{
+			ID:        tc.ID,
+			Name:      tc.Function.Name,
+			Arguments: tc.Function.Arguments,
+		})
 	}
 
 	return model.ChatResponse{
-		Content: resp.Choices[0].Message.Content,
+		Content:   msg.Content,
+		ToolCalls: toolCalls,
 		Usage: model.TokenUsage{
 			PromptTokens:     int64(resp.Usage.PromptTokens),
 			CompletionTokens: int64(resp.Usage.CompletionTokens),
 			TotalTokens:      int64(resp.Usage.TotalTokens),
 		},
-		Latency: time.Since(start),
 	}, nil
+}
+
+func modelToolsToOpenAI(tools []model.Tool) []openai.Tool {
+	if len(tools) == 0 {
+		return nil
+	}
+
+	result := make([]openai.Tool, 0, len(tools))
+	for _, tool := range tools {
+		result = append(result, openai.Tool{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters: map[string]any{
+					"type":       tool.Parameters.Type,
+					"properties": tool.Parameters.Properties,
+					"required":   tool.Parameters.Required,
+				},
+			},
+		})
+	}
+
+	return result
+}
+
+func modelToolChoiceToOpenAI(choice model.ToolChoice) (any, error) {
+	switch choice.Type {
+	case "":
+		return nil, nil
+	case model.ToolAuto:
+		return "auto", nil
+	case model.ToolNone:
+		return "none", nil
+	case model.ToolForce:
+		if choice.Name == "" {
+			return "required", nil
+		}
+		return openai.ToolChoice{
+			Type: openai.ToolTypeFunction,
+			Function: openai.ToolFunction{
+				Name: choice.Name,
+			},
+		}, nil
+	default:
+		return nil, errors.New("unsupported tool choice type")
+	}
 }
 
 func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.Stream, error) {

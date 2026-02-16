@@ -44,7 +44,7 @@ func main() {
 		Model: *modelName,
 		Messages: []model.Message{
 			{
-				Role:        model.MessageUser,
+				Role:        model.RoleUser,
 				Content:     *question,
 				Attachments: attachments,
 			},

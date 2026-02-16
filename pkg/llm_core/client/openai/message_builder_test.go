@@ -10,7 +10,7 @@ import (
 
 func TestBuildOpenAIMessages_TextOnly(t *testing.T) {
 	msgs, promptMessages, err := buildOpenAIMessages([]model.Message{{
-		Role:    model.MessageUser,
+		Role:    model.RoleUser,
 		Content: "hello",
 	}})
 	if err != nil {
@@ -32,7 +32,7 @@ func TestBuildOpenAIMessages_TextOnly(t *testing.T) {
 
 func TestBuildOpenAIMessages_WithAttachments(t *testing.T) {
 	msgs, promptMessages, err := buildOpenAIMessages([]model.Message{{
-		Role:    model.MessageUser,
+		Role:    model.RoleUser,
 		Content: "请分析附件",
 		Attachments: []model.Attachment{
 			{
@@ -78,7 +78,7 @@ func TestBuildOpenAIMessages_WithAttachments(t *testing.T) {
 
 func TestBuildOpenAIMessages_UnsupportedAttachment(t *testing.T) {
 	_, _, err := buildOpenAIMessages([]model.Message{{
-		Role: model.MessageUser,
+		Role: model.RoleUser,
 		Attachments: []model.Attachment{{
 			FileName: "doc.pdf",
 			MimeType: "application/pdf",
@@ -87,5 +87,52 @@ func TestBuildOpenAIMessages_UnsupportedAttachment(t *testing.T) {
 	}})
 	if err == nil {
 		t.Fatal("expected error for unsupported attachment type")
+	}
+}
+
+func TestBuildOpenAIMessages_WithToolCalls(t *testing.T) {
+	msgs, promptMessages, err := buildOpenAIMessages([]model.Message{
+		{
+			Role:    model.RoleAssistant,
+			Content: "",
+			ToolCalls: []model.ToolCall{{
+				ID:        "call_1",
+				Name:      "lookup_weather",
+				Arguments: `{"city":"Shanghai"}`,
+			}},
+		},
+		{
+			Role:       model.RoleTool,
+			Content:    `{"temp":23}`,
+			ToolCallId: "call_1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildOpenAIMessages() error = %v", err)
+	}
+
+	if len(msgs) != 2 {
+		t.Fatalf("len(msgs) = %d, want 2", len(msgs))
+	}
+
+	if len(msgs[0].ToolCalls) != 1 {
+		t.Fatalf("len(msgs[0].ToolCalls) = %d, want 1", len(msgs[0].ToolCalls))
+	}
+	if msgs[0].ToolCalls[0].Type != goopenai.ToolTypeFunction {
+		t.Fatalf("tool call type = %q, want %q", msgs[0].ToolCalls[0].Type, goopenai.ToolTypeFunction)
+	}
+	if msgs[0].ToolCalls[0].Function.Name != "lookup_weather" {
+		t.Fatalf("tool call function name = %q, want %q", msgs[0].ToolCalls[0].Function.Name, "lookup_weather")
+	}
+	if msgs[0].ToolCalls[0].Function.Arguments != `{"city":"Shanghai"}` {
+		t.Fatalf("tool call arguments = %q, want %q", msgs[0].ToolCalls[0].Function.Arguments, `{"city":"Shanghai"}`)
+	}
+
+	if msgs[1].ToolCallID != "call_1" {
+		t.Fatalf("msgs[1].ToolCallID = %q, want %q", msgs[1].ToolCallID, "call_1")
+	}
+
+	if len(promptMessages) != 2 {
+		t.Fatalf("len(promptMessages) = %d, want 2", len(promptMessages))
 	}
 }

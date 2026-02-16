@@ -3,9 +3,10 @@ package model
 import "time"
 
 const (
-	MessageSystem    = "system"
-	MessageUser      = "user"
-	MessageAssistant = "assistant"
+	RoleSystem    = "system"
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+	RoleTool      = "tool"
 )
 
 type Message struct {
@@ -13,6 +14,11 @@ type Message struct {
 	Content string
 	// Attachments supports image/text files for multimodal requests.
 	Attachments []Attachment
+
+	// assistant 发起的 Tool 调用
+	ToolCalls []ToolCall
+	// tool 执行结果
+	ToolCallId string
 }
 
 type Attachment struct {
@@ -28,11 +34,17 @@ type ChatRequest struct {
 
 	Sampling SamplingParams
 
+	// Tool 相关
+	Tools      []Tool
+	ToolChoice ToolChoice
+
 	TraceID string // 非模型参数，但很关键
 }
 
 type ChatResponse struct {
 	Content string
+	// ToolCalls carries assistant tool invocation requests in non-stream responses.
+	ToolCalls []ToolCall
 
 	Usage   TokenUsage
 	Latency time.Duration

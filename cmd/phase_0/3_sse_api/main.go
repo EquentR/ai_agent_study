@@ -51,8 +51,8 @@ func main() {
 			model.ChatRequest{
 				Model: "kimi-k2.5",
 				Messages: []model.Message{
-					{Role: model.MessageUser, Content: question},
-					{Role: model.MessageSystem, Content: "你是一个拥有极高洞察力、逻辑思维和跨领域知识整合能力的 AI 助手。" +
+					{Role: model.RoleUser, Content: question},
+					{Role: model.RoleSystem, Content: "你是一个拥有极高洞察力、逻辑思维和跨领域知识整合能力的 AI 助手。" +
 						"你不仅能提供事实性信息，还能进行深度研究、创意写作和情感共鸣。你的目标是作为用户的'超级大脑'，通过精准的对话解决复杂问题。"},
 				},
 				MaxTokens: 2048,
