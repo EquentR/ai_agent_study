@@ -31,7 +31,7 @@ var mockToolHandlers = map[string]mockToolFunc{
 
 func main() {
 	question := flag.String("question", "帮我看下北京周末有什么活动，并给我美元兑人民币汇率。", "用户问题")
-	modelName := flag.String("model", "gemini-3-flash-preview", "模型名称")
+	modelName := flag.String("model", "deepseek-v3.2", "模型名称")
 	maxRounds := flag.Int("max-rounds", 4, "最多工具调用轮次")
 	flag.Parse()
 
@@ -48,6 +48,10 @@ func main() {
 		},
 	}
 
+	sp := model.SamplingParams{}
+	sp.SetTemperature(1.2)
+	sp.SetTopP(1.0)
+
 	for round := 1; round <= *maxRounds; round++ {
 		resp, err := llmClient.Chat(context.Background(), model.ChatRequest{
 			Model:      *modelName,
@@ -56,6 +60,7 @@ func main() {
 			Tools:      tools,
 			ToolChoice: model.ToolChoice{Type: model.ToolAuto},
 			TraceID:    "phase2-tool-call-example",
+			Sampling:   sp,
 		})
 		if err != nil {
 			panic(err)

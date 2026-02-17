@@ -17,7 +17,7 @@ type Message struct {
 
 	// assistant 发起的 Tool 调用
 	ToolCalls []ToolCall
-	// tool 执行结果
+	// tool 执行结果id
 	ToolCallId string
 }
 
