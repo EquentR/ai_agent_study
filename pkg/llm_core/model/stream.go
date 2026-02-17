@@ -18,11 +18,30 @@ type Stream interface {
 
 	// Stats 统计数据
 	Stats() *StreamStats
+
+	// ToolCalls 返回本次回复中的工具调用（仅在 tool call 场景有值）
+	ToolCalls() []ToolCall
+
+	// ResponseType 标识本次回复类型（文本或工具调用）
+	ResponseType() StreamResponseType
+
+	// FinishReason 返回模型返回的结束原因（如 stop/tool_calls/length）
+	FinishReason() string
 }
+
+type StreamResponseType string
+
+const (
+	StreamResponseUnknown  StreamResponseType = "unknown"
+	StreamResponseText     StreamResponseType = "text"
+	StreamResponseToolCall StreamResponseType = "tool_call"
+)
 
 type StreamStats struct {
 	Usage           TokenUsage
 	TTFT            time.Duration
 	TotalLatency    time.Duration
 	LocalTokenCount int64 // 本地计数的completion tokens
+	FinishReason    string
+	ResponseType    StreamResponseType
 }

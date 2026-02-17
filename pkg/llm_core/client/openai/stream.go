@@ -4,8 +4,12 @@ import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/llm_core/tools"
 	"context"
+	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/sashabaranov/go-openai"
 )
 
 type openAIStream struct {
@@ -16,6 +20,7 @@ type openAIStream struct {
 	startTime         time.Time
 	firstTok          sync.Once
 	asyncTokenCounter *tools.AsyncTokenCounter // 异步token计数器
+	toolCalls         []model.ToolCall
 }
 
 func (s *openAIStream) Recv() (string, error) {
@@ -44,4 +49,80 @@ func (s *openAIStream) Context() context.Context {
 
 func (s *openAIStream) Stats() *model.StreamStats {
 	return s.stats
+}
+
+func (s *openAIStream) ToolCalls() []model.ToolCall {
+	if len(s.toolCalls) == 0 {
+		return nil
+	}
+	out := make([]model.ToolCall, len(s.toolCalls))
+	copy(out, s.toolCalls)
+	return out
+}
+
+func (s *openAIStream) ResponseType() model.StreamResponseType {
+	return s.stats.ResponseType
+}
+
+func (s *openAIStream) FinishReason() string {
+	return s.stats.FinishReason
+}
+
+type streamToolCallAccumulator struct {
+	calls map[int]model.ToolCall
+}
+
+func newStreamToolCallAccumulator() *streamToolCallAccumulator {
+	return &streamToolCallAccumulator{
+		calls: make(map[int]model.ToolCall),
+	}
+}
+
+func (a *streamToolCallAccumulator) Append(toolCalls []openai.ToolCall) {
+	for _, tc := range toolCalls {
+		// OpenAI streaming tool call 会按 index 拆成多个 delta，需要逐块拼接。
+		idx := len(a.calls)
+		if tc.Index != nil {
+			idx = *tc.Index
+		}
+
+		current := a.calls[idx]
+		if tc.ID != "" {
+			current.ID = tc.ID
+		}
+		if tc.Function.Name != "" {
+			current.Name = tc.Function.Name
+		}
+		if tc.Function.Arguments != "" {
+			current.Arguments += tc.Function.Arguments
+		}
+		a.calls[idx] = current
+	}
+}
+
+func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
+	if len(a.calls) == 0 {
+		return nil
+	}
+	indexes := make([]int, 0, len(a.calls))
+	for idx := range a.calls {
+		indexes = append(indexes, idx)
+	}
+	sort.Ints(indexes)
+
+	out := make([]model.ToolCall, 0, len(indexes))
+	for _, idx := range indexes {
+		out = append(out, a.calls[idx])
+	}
+	return out
+}
+
+func resolveStreamResponseType(finishReason string, toolCalls []model.ToolCall) model.StreamResponseType {
+	if strings.EqualFold(finishReason, "tool_calls") || len(toolCalls) > 0 {
+		return model.StreamResponseToolCall
+	}
+	if finishReason != "" {
+		return model.StreamResponseText
+	}
+	return model.StreamResponseUnknown
 }

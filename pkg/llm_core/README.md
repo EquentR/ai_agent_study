@@ -10,11 +10,13 @@
 
 不传附件时，原有文本消息调用方式保持不变。
 
-## Tool Call（非流式 Chat）
+## Tool Call（Chat / ChatStream）
 
 - `ChatRequest.Tools` / `ChatRequest.ToolChoice` 会透传到 OpenAI Chat Completions
 - `ChatRequest.Messages` 中的 `assistant.ToolCalls` 与 `tool.ToolCallId` 会按 OpenAI 字段映射
 - `ChatResponse.ToolCalls` 返回模型产生的工具调用（函数名、参数、调用 ID）
+- `ChatStream` 也支持 tool call 聚合；流结束后可通过 `Stream.ToolCalls()` 读取
+- `ChatStream` 可通过 `Stream.ResponseType()` 与 `Stream.FinishReason()` 判断回复类型和结束原因
 
 ### tools
 

@@ -90,3 +90,48 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 		t.Fatalf("resp.Usage.TotalTokens = %d, want 20", resp.Usage.TotalTokens)
 	}
 }
+
+func TestBuildChatCompletionStreamRequest_WithTools(t *testing.T) {
+	req := model.ChatRequest{
+		Model: "gpt-4o-mini",
+		Messages: []model.Message{{
+			Role:    model.RoleUser,
+			Content: "查下北京天气",
+		}},
+		MaxTokens: 256,
+		Tools: []model.Tool{{
+			Name:        "lookup_weather",
+			Description: "查询天气",
+			Parameters: model.JSONSchema{
+				Type: "object",
+				Properties: map[string]model.SchemaProperty{
+					"city": {Type: "string", Description: "城市名"},
+				},
+				Required: []string{"city"},
+			},
+		}},
+		ToolChoice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"},
+	}
+
+	oaiReq, _, err := buildChatCompletionStreamRequest(req)
+	if err != nil {
+		t.Fatalf("buildChatCompletionStreamRequest() error = %v", err)
+	}
+
+	if !oaiReq.Stream {
+		t.Fatalf("oaiReq.Stream = %v, want true", oaiReq.Stream)
+	}
+	if oaiReq.StreamOptions == nil || !oaiReq.StreamOptions.IncludeUsage {
+		t.Fatalf("oaiReq.StreamOptions.IncludeUsage = false, want true")
+	}
+	if len(oaiReq.Tools) != 1 {
+		t.Fatalf("len(oaiReq.Tools) = %d, want 1", len(oaiReq.Tools))
+	}
+	choice, ok := oaiReq.ToolChoice.(goopenai.ToolChoice)
+	if !ok {
+		t.Fatalf("oaiReq.ToolChoice type = %T, want goopenai.ToolChoice", oaiReq.ToolChoice)
+	}
+	if choice.Function.Name != "lookup_weather" {
+		t.Fatalf("choice.Function.Name = %q, want %q", choice.Function.Name, "lookup_weather")
+	}
+}
