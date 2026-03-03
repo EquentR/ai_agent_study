@@ -1,7 +1,7 @@
 package main
 
 import (
-	"agent_study/internal/model"
+	"agent_study/pkg/mcp/model"
 	"bufio"
 	"encoding/json"
 	"os"

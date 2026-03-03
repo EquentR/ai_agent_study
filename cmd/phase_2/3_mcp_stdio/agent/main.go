@@ -1,10 +1,10 @@
 package main
 
 import (
-	internalModel "agent_study/internal/model"
 	"agent_study/pkg/llm_core/client/openai"
 	"agent_study/pkg/llm_core/model"
 	mcpClient "agent_study/pkg/mcp/client"
+	mcpModel "agent_study/pkg/mcp/model"
 	"context"
 	"encoding/json"
 	"flag"
@@ -145,7 +145,7 @@ func main() {
 	fmt.Printf("\n超过最大工具轮次（%d），未拿到最终答案。\n", *maxRounds)
 }
 
-func convertMCPToolsToLLMTools(mcpTools []internalModel.MCPTool) []model.Tool {
+func convertMCPToolsToLLMTools(mcpTools []mcpModel.MCPTool) []model.Tool {
 	llmTools := make([]model.Tool, 0, len(mcpTools))
 
 	for _, mcpTool := range mcpTools {

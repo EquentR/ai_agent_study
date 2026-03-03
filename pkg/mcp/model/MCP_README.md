@@ -206,5 +206,5 @@ fmt.Println("Result:", result)
 
 ## 参考
 
-- [MCP 协议规范](https://spec.modelcontextprotocol.io/)
+- [MCP 协议规范](https://mcp.wiki/introduction)
 - [JSON-RPC 2.0 规范](https://www.jsonrpc.org/specification)
