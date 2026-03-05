@@ -127,7 +127,7 @@ User Question
 - `ToolCallParams/Result` - 工具调用相关
 - 辅助函数：`NewJSONRPCRequest`, `NewJSONRPCResponse`, `NewJSONRPCErrorResponse`
 
-详见：[MCP 模型文档](../../../pkg/mcp/model/MCP_README.md)
+详见：[MCP 模型文档](../../../pkg/mcp/model/PROTO_README.md)
 
 #### 2. MCP 客户端包 (`pkg/mcp/client`)
 

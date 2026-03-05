@@ -1,6 +1,6 @@
 package model
 
-// JSONRPCRequest represents a JSON-RPC 2.0 request
+// JSONRPCRequest 表示一个 JSON-RPC 2.0 请求。
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
@@ -8,7 +8,7 @@ type JSONRPCRequest struct {
 	ID      interface{} `json:"id"`
 }
 
-// JSONRPCResponse represents a JSON-RPC 2.0 response
+// JSONRPCResponse 表示一个 JSON-RPC 2.0 响应。
 type JSONRPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result,omitempty"`
@@ -16,42 +16,45 @@ type JSONRPCResponse struct {
 	ID      interface{} `json:"id"`
 }
 
-// RPCError represents a JSON-RPC 2.0 error
+// RPCError 表示一个 JSON-RPC 2.0 错误对象。
 type RPCError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-// MCPTool represents a tool in MCP protocol
+// MCPTool 表示对外暴露给 LLM 的 MCP 工具描述。
+//
+// 该结构用于 tools/list 等协议层返回，供模型选择与理解工具能力，
+// 不直接承载 server 端执行逻辑。
 type MCPTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	InputSchema map[string]interface{} `json:"input_schema"`
 }
 
-// ToolsListResult represents the result of tools/list method
+// ToolsListResult 表示 tools/list 方法的结果。
 type ToolsListResult struct {
 	Tools []MCPTool `json:"tools"`
 }
 
-// ToolCallParams represents the parameters for tools/call method
+// ToolCallParams 表示 tools/call 方法的参数。
 type ToolCallParams struct {
 	Name      string                 `json:"name"`
 	Arguments map[string]interface{} `json:"arguments"`
 }
 
-// ToolCallResult represents the result of tools/call method
+// ToolCallResult 表示 tools/call 方法的结果。
 type ToolCallResult struct {
 	Content []ToolCallContent `json:"content"`
 }
 
-// ToolCallContent represents a content item in tool call result
+// ToolCallContent 表示工具调用结果中的单个内容项。
 type ToolCallContent struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
-// NewJSONRPCRequest creates a new JSON-RPC request
+// NewJSONRPCRequest 创建一个新的 JSON-RPC 请求。
 func NewJSONRPCRequest(method string, params interface{}, id interface{}) JSONRPCRequest {
 	return JSONRPCRequest{
 		JSONRPC: "2.0",
@@ -61,7 +64,7 @@ func NewJSONRPCRequest(method string, params interface{}, id interface{}) JSONRP
 	}
 }
 
-// NewJSONRPCResponse creates a new successful JSON-RPC response
+// NewJSONRPCResponse 创建一个成功的 JSON-RPC 响应。
 func NewJSONRPCResponse(result interface{}, id interface{}) JSONRPCResponse {
 	return JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -70,7 +73,7 @@ func NewJSONRPCResponse(result interface{}, id interface{}) JSONRPCResponse {
 	}
 }
 
-// NewJSONRPCErrorResponse creates a new error JSON-RPC response
+// NewJSONRPCErrorResponse 创建一个错误的 JSON-RPC 响应。
 func NewJSONRPCErrorResponse(code int, message string, id interface{}) JSONRPCResponse {
 	return JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -82,7 +85,7 @@ func NewJSONRPCErrorResponse(code int, message string, id interface{}) JSONRPCRe
 	}
 }
 
-// Common JSON-RPC error codes
+// 常用 JSON-RPC 错误码。
 const (
 	ParseError     = -32700
 	InvalidRequest = -32600

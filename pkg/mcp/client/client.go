@@ -9,7 +9,7 @@ import (
 	"os/exec"
 )
 
-// MCPClient represents a client for MCP server communication via STDIO
+// MCPClient 表示通过 STDIO 与 MCP server 通信的客户端。
 type MCPClient struct {
 	cmd       *exec.Cmd
 	stdin     io.WriteCloser
@@ -18,7 +18,7 @@ type MCPClient struct {
 	requestID int
 }
 
-// NewMCPClient creates a new MCP client and starts the server process
+// NewMCPClient 创建 MCP 客户端并启动 server 进程。
 func NewMCPClient(serverPath string) (*MCPClient, error) {
 	cmd := exec.Command(serverPath)
 	stdin, err := cmd.StdinPipe()
@@ -42,7 +42,7 @@ func NewMCPClient(serverPath string) (*MCPClient, error) {
 	}, nil
 }
 
-// Close closes the MCP client and kills the server process
+// Close 关闭 MCP 客户端并结束 server 进程。
 func (c *MCPClient) Close() error {
 	c.stdin.Close()
 	c.stdout.Close()
@@ -52,7 +52,7 @@ func (c *MCPClient) Close() error {
 	return nil
 }
 
-// call sends a JSON-RPC request and waits for response
+// call 发送 JSON-RPC 请求并等待响应。
 func (c *MCPClient) call(method string, params interface{}) (json.RawMessage, error) {
 	c.requestID++
 	req := model.NewJSONRPCRequest(method, params, c.requestID)
@@ -62,12 +62,12 @@ func (c *MCPClient) call(method string, params interface{}) (json.RawMessage, er
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Write request
+	// 写入请求
 	if _, err := c.stdin.Write(append(reqBytes, '\n')); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
 
-	// Read response
+	// 读取响应
 	if !c.scanner.Scan() {
 		if err := c.scanner.Err(); err != nil {
 			return nil, fmt.Errorf("scanner error: %w", err)
@@ -84,7 +84,7 @@ func (c *MCPClient) call(method string, params interface{}) (json.RawMessage, er
 		return nil, fmt.Errorf("RPC error %d: %s", resp.Error.Code, resp.Error.Message)
 	}
 
-	// Convert result to json.RawMessage
+	// 将结果转换为 json.RawMessage
 	resultBytes, err := json.Marshal(resp.Result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal result: %w", err)
@@ -93,7 +93,7 @@ func (c *MCPClient) call(method string, params interface{}) (json.RawMessage, er
 	return json.RawMessage(resultBytes), nil
 }
 
-// ListTools retrieves the list of available tools from the MCP server
+// ListTools 获取 MCP server 暴露的可用工具列表。
 func (c *MCPClient) ListTools() ([]model.MCPTool, error) {
 	result, err := c.call("tools/list", nil)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *MCPClient) ListTools() ([]model.MCPTool, error) {
 	return toolsList.Tools, nil
 }
 
-// CallTool calls a tool on the MCP server with the given arguments
+// CallTool 使用给定参数调用 MCP server 上的工具。
 func (c *MCPClient) CallTool(name string, arguments map[string]interface{}) (string, error) {
 	params := model.ToolCallParams{
 		Name:      name,

@@ -1,0 +1,188 @@
+package model
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
+
+// ToolParam 定义工具参数，包含参数级说明。
+type ToolParam struct {
+	Name        string
+	Type        string
+	Description string
+	Required    bool
+}
+
+// ToolHandler 是 server 端工具执行的标准处理函数签名。
+type ToolHandler func(ctx context.Context, arguments map[string]interface{}) (string, error)
+
+// Tool 是 server 端的工具抽象，包含元数据与可执行逻辑。
+//
+// 与 MCPTool 不同，Tool 面向 server 内部注册与调用流程。
+type Tool struct {
+	Name        string
+	Description string
+	Params      []ToolParam
+	Handler     ToolHandler
+}
+
+// NewTool 使用标准处理函数创建一个已包装的 Tool。
+func NewTool(name string, description string, params []ToolParam, handler ToolHandler) (Tool, error) {
+	tool := Tool{
+		Name:        name,
+		Description: description,
+		Params:      append([]ToolParam(nil), params...),
+		Handler:     handler,
+	}
+
+	if err := tool.Validate(); err != nil {
+		return Tool{}, err
+	}
+
+	return tool, nil
+}
+
+// NewTypedTool 使用强类型处理函数创建 Tool：func(context.Context, T) (R, error)。
+func NewTypedTool[T any, R any](name string, description string, params []ToolParam, handler func(context.Context, T) (R, error)) (Tool, error) {
+	if handler == nil {
+		return Tool{}, fmt.Errorf("handler cannot be nil")
+	}
+
+	return NewTool(name, description, params, func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+		arg, err := decodeTypedArgs[T](arguments)
+		if err != nil {
+			return "", err
+		}
+
+		result, err := handler(ctx, arg)
+		if err != nil {
+			return "", err
+		}
+
+		return stringifyToolResult(result)
+	})
+}
+
+// NewTypedToolNoContext 使用强类型处理函数创建 Tool：func(T) (R, error)。
+func NewTypedToolNoContext[T any, R any](name string, description string, params []ToolParam, handler func(T) (R, error)) (Tool, error) {
+	if handler == nil {
+		return Tool{}, fmt.Errorf("handler cannot be nil")
+	}
+
+	return NewTool(name, description, params, func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+		_ = ctx
+
+		arg, err := decodeTypedArgs[T](arguments)
+		if err != nil {
+			return "", err
+		}
+
+		result, err := handler(arg)
+		if err != nil {
+			return "", err
+		}
+
+		return stringifyToolResult(result)
+	})
+}
+
+// Validate 校验 Tool 是否可执行。
+func (t Tool) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("tool name cannot be empty")
+	}
+	if t.Handler == nil {
+		return fmt.Errorf("tool handler cannot be nil")
+	}
+	return nil
+}
+
+// ToMCPTool 将 Tool 元数据转换为供 LLM 使用的 MCPTool 描述。
+func (t Tool) ToMCPTool() MCPTool {
+	return MCPTool{
+		Name:        t.Name,
+		Description: t.Description,
+		InputSchema: buildInputSchema(t.Params),
+	}
+}
+
+// Call 执行 Tool 中封装的处理函数。
+func (t Tool) Call(ctx context.Context, arguments map[string]interface{}) (string, error) {
+	if arguments == nil {
+		arguments = map[string]interface{}{}
+	}
+	return t.Handler(ctx, arguments)
+}
+
+func buildInputSchema(params []ToolParam) map[string]interface{} {
+	properties := make(map[string]interface{}, len(params))
+	required := make([]string, 0, len(params))
+
+	for _, param := range params {
+		paramType := param.Type
+		if paramType == "" {
+			paramType = "string"
+		}
+
+		propertyDef := map[string]interface{}{
+			"type": paramType,
+		}
+		if param.Description != "" {
+			propertyDef["description"] = param.Description
+		}
+
+		properties[param.Name] = propertyDef
+		if param.Required {
+			required = append(required, param.Name)
+		}
+	}
+
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": properties,
+	}
+
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+
+	return schema
+}
+
+func decodeTypedArgs[T any](arguments map[string]interface{}) (T, error) {
+	if arguments == nil {
+		arguments = map[string]interface{}{}
+	}
+
+	data, err := json.Marshal(arguments)
+	if err != nil {
+		var zero T
+		return zero, fmt.Errorf("failed to encode tool arguments: %w", err)
+	}
+
+	var arg T
+	if err := json.Unmarshal(data, &arg); err != nil {
+		var zero T
+		return zero, fmt.Errorf("failed to decode tool arguments: %w", err)
+	}
+
+	return arg, nil
+}
+
+func stringifyToolResult(result interface{}) (string, error) {
+	switch v := result.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	default:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return "", fmt.Errorf("failed to encode tool result: %w", err)
+		}
+		return string(data), nil
+	}
+}
