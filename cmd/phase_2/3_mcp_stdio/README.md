@@ -1,214 +1,152 @@
 # MCP STDIO Agent + Server 示例
 
-这是一个完整的 MCP (Model Context Protocol) STDIO 实现示例，包含 Server 和 Agent 两部分。
+这是一个完整的 MCP (Model Context Protocol) STDIO 示例，包含：
+
+- `server`：提供 MCP 工具能力（`tools/list` / `tools/call`）
+- `agent`：调用 LLM，并通过 MCP 客户端自动发现和执行工具
+
+本目录的 `server/main.go` 已按最新 `pkg/mcp` 抽象重写，使用可复用的 `server.NewServer()` + `model.NewTypedTool*()` 方式注册工具。
 
 ## 项目结构
 
-```
+```text
 agent_study/
 ├── cmd/phase_2/3_mcp_stdio/
-│   ├── server/              # MCP Server
-│   │   ├── main.go         # Server 实现（提供工具）
-│   │   └── server.exe      # 编译后的可执行文件
-│   ├── agent/              # MCP Agent
-│   │   ├── main.go         # Agent 实现（调用 LLM + 使用工具）
-│   │   ├── README.md       # Agent 详细文档
-│   │   └── agent.exe       # 编译后的可执行文件
-│   ├── test.sh             # Linux/Mac 测试脚本
-│   ├── test.bat            # Windows 测试脚本
-│   └── README.md           # 本文件
-├── internal/model/          # 公共模型定义
-│   ├── mcp.go              # MCP 协议结构体
-│   └── MCP_README.md       # MCP 模型文档
-└── pkg/mcp/client/          # MCP 客户端包
-    ├── client.go           # 客户端实现
-    └── README.md           # 客户端文档
+│   ├── server/
+│   │   ├── main.go            # 当前推荐实现（基于 pkg/mcp/server）
+│   │   ├── main-simple.go     # 旧版手写 JSON-RPC 示例（保留参考）
+│   │   └── server.exe
+│   ├── agent/
+│   │   ├── main.go
+│   │   ├── README.md
+│   │   └── agent.exe
+│   ├── test.sh
+│   ├── test.bat
+│   └── README.md
+└── pkg/mcp/
+    ├── model/                 # 协议结构 + Tool 抽象
+    ├── server/                # 可复用 MCP server（STDIO / HTTP）
+    └── client/                # MCP STDIO 客户端
 ```
 
 ## 快速开始
 
 ### 前置要求
 
-1. Go 1.21 或更高版本
+1. Go 1.21+
 2. 设置环境变量：
-   ```bash
-   # Linux/Mac
-   export OPENAI_BASE_URL="your_api_base_url"
-   export OPENAI_API_KEY="your_api_key"
-   
-   # Windows
-   set OPENAI_BASE_URL=your_api_base_url
-   set OPENAI_API_KEY=your_api_key
-   ```
-
-### 运行测试
 
 ```bash
-# Linux/Mac
+# Linux / Mac
+export OPENAI_BASE_URL="your_api_base_url"
+export OPENAI_API_KEY="your_api_key"
+
+# Windows
+set OPENAI_BASE_URL=your_api_base_url
+set OPENAI_API_KEY=your_api_key
+```
+
+### 运行测试脚本
+
+```bash
+# Linux / Mac
 ./test.sh
 
 # Windows
 test.bat
 ```
 
-### 手动运行
+### 手动编译运行
 
 ```bash
-# 1. 编译 server
-cd server
-go build -o server.exe main.go
+# 在仓库根目录
+go build -o cmd/phase_2/3_mcp_stdio/server/server.exe ./cmd/phase_2/3_mcp_stdio/server
+go build -o cmd/phase_2/3_mcp_stdio/agent/agent.exe ./cmd/phase_2/3_mcp_stdio/agent
 
-# 2. 编译 agent
-cd ../agent
-go build -o agent.exe main.go
-
-# 3. 运行 agent
-./agent.exe -server "../server/server.exe"
+# 运行 agent
+./cmd/phase_2/3_mcp_stdio/agent/agent.exe -server "./cmd/phase_2/3_mcp_stdio/server/server.exe"
 ```
 
-## 工作原理
+## Server（main.go）最新实现说明
 
-### 1. MCP Server
+`cmd/phase_2/3_mcp_stdio/server/main.go` 现在只关注三件事：
 
-Server 提供工具的实现，通过 STDIO 使用 JSON-RPC 协议通信。
+1. 创建 server：`server.NewServer()`
+2. 定义工具：`model.NewTypedToolNoContext(...)`
+3. 启动 STDIO：`s.ServeStdio()`
 
-**提供的工具：**
-- `get_uuid`: 生成随机 UUID
+核心代码结构如下：
 
-**通信协议：**
-- `tools/list`: 列出所有可用工具
-- `tools/call`: 调用指定工具
-
-### 2. MCP Agent
-
-Agent 是一个智能代理，能够：
-1. 启动 MCP Server 子进程
-2. 获取 Server 提供的工具列表
-3. 将用户问题和工具信息发送给 LLM
-4. 根据 LLM 的决策调用相应工具
-5. 将工具结果返回给 LLM
-6. 最终给出完整答案
-
-### 3. 流程图
-
-```
-User Question
-     ↓
-  Agent (启动)
-     ↓
-  启动 MCP Server
-     ↓
-  获取工具列表 (tools/list)
-     ↓
-  调用 LLM (问题 + 工具列表)
-     ↓
-  LLM 决定调用工具
-     ↓
-  Agent 调用 MCP Server (tools/call)
-     ↓
-  获取工具结果
-     ↓
-  返回结果给 LLM
-     ↓
-  LLM 生成最终答案
-     ↓
-  展示给用户
-```
-
-## 核心技术
-
-### 代码组织
-
-#### 1. 公共模型 (`internal/model/mcp.go`)
-
-所有 MCP 协议相关的数据结构都定义在此：
-- `JSONRPCRequest/Response` - JSON-RPC 2.0 基础结构
-- `MCPTool` - 工具定义
-- `ToolCallParams/Result` - 工具调用相关
-- 辅助函数：`NewJSONRPCRequest`, `NewJSONRPCResponse`, `NewJSONRPCErrorResponse`
-
-详见：[MCP 模型文档](../../../pkg/mcp/model/PROTO_README.md)
-
-#### 2. MCP 客户端包 (`pkg/mcp/client`)
-
-通用的 MCP 客户端实现：
-- `NewMCPClient(serverPath)` - 创建客户端并启动 server
-- `ListTools()` - 获取工具列表
-- `CallTool(name, args)` - 调用工具
-- `Close()` - 关闭客户端
-
-详见：[MCP 客户端文档](../../../pkg/mcp/client/README.md)
-
-#### 3. Server 实现 (`server/main.go`)
-
-使用公共模型实现工具提供方：
 ```go
-import "agent_study/internal/model"
+s := server.NewServer()
 
-func handleRequest(req model.JSONRPCRequest) model.JSONRPCResponse {
-    // 使用 model 中的结构体
-}
-```
-
-#### 4. Agent 实现 (`agent/main.go`)
-
-使用 MCP 客户端包和 LLM 集成：
-```go
-import (
-    "agent_study/pkg/mcp/client"
-    "agent_study/pkg/llm_core/client/openai"
+uuidTool, err := model.NewTypedToolNoContext(
+    "get_uuid",
+    "Generate a random UUID",
+    nil,
+    func(args uuidArgs) (string, error) {
+        return uuid.NewString(), nil
+    },
 )
 
-client, _ := client.NewMCPClient(serverPath)
-tools, _ := client.ListTools()
-// 与 LLM 集成...
-```
+if err := s.RegisterTool(uuidTool); err != nil {
+    log.Fatal(err)
+}
 
-### JSON-RPC 2.0 协议
-
-**请求示例：**
-```json
-{"jsonrpc":"2.0","method":"tools/list","id":1}
-```
-
-**响应示例：**
-```json
-{
-  "jsonrpc":"2.0",
-  "id":1,
-  "result":{
-    "tools":[
-      {
-        "name":"get_uuid",
-        "description":"Generate a random UUID",
-        "input_schema":{
-          "type":"object",
-          "properties":{}
-        }
-      }
-    ]
-  }
+if err := s.ServeStdio(); err != nil {
+    log.Fatal(err)
 }
 ```
 
-### STDIO 通信
+相比旧版手写 `switch req.Method`：
 
-- Server 从 `stdin` 读取请求
-- Server 向 `stdout` 写入响应
-- 每个消息以换行符 `\n` 结尾
-- Agent 通过管道与 Server 通信
+- 工具声明更清晰（元数据和处理逻辑在一起）
+- 协议处理复用 `pkg/mcp/server`，减少重复代码
+- 后续可直接迁移到 HTTP：`s.NewHttpHandler()`
 
-### LLM 工具调用
+## Agent 工作流程
 
-参考 `cmd/phase_2/1_tool_call` 的实现：
-- 使用 OpenAI 兼容的 API
-- 支持 Function Calling
-- 处理多轮对话
-- 工具调用结果注入到上下文
+1. 启动 MCP server 子进程
+2. 调用 `tools/list` 获取工具列表
+3. 将用户问题 + 工具描述发送给 LLM
+4. 当 LLM 返回 tool call 时，Agent 调用 `tools/call`
+5. 将工具结果注回消息上下文，继续多轮，直到得到最终答案
 
-## 命令行参数
+## 扩展：添加新工具
 
-### Agent 参数
+在 `server/main.go` 中新增并注册 tool 即可：
+
+```go
+type TimeArgs struct {
+    Timezone string `json:"timezone"`
+}
+
+timeTool, err := model.NewTypedToolNoContext(
+    "get_time",
+    "Get current time by timezone",
+    []model.ToolParam{
+        {Name: "timezone", Type: "string", Description: "Timezone name", Required: false},
+    },
+    func(args TimeArgs) (string, error) {
+        tz := args.Timezone
+        if tz == "" {
+            tz = "UTC"
+        }
+        return fmt.Sprintf("%s (%s)", time.Now().Format("2006-01-02 15:04:05"), tz), nil
+    },
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+if err := s.RegisterTool(uuidTool, timeTool); err != nil {
+    log.Fatal(err)
+}
+```
+
+Agent 侧无需改动，会在 `tools/list` 阶段自动发现新工具。
+
+## 命令行参数（Agent）
 
 ```bash
 ./agent.exe [options]
@@ -219,91 +157,17 @@ Options:
   -question string
         用户问题 (default "请帮我生成一个UUID")
   -model string
-        模型名称 (default "qwen3.5-397b-a17b")
+        模型名称 (default "minimax-m2.5")
   -max-rounds int
         最多工具调用轮次 (default 4)
 ```
 
-## 示例输出
+## 相关文档
 
-```
-Starting MCP server...
-Fetching available tools...
-Available tools: 1
-  - get_uuid: Generate a random UUID
-
-=== Starting Agent Loop ===
-
-Round 1:
-Tool calls:
-  - Calling get_uuid with args: {}
-    Result: 550e8400-e29b-41d4-a716-446655440000
-
-=== Final Answer ===
-我已经为您生成了一个UUID：550e8400-e29b-41d4-a716-446655440000
-```
-
-## 扩展示例
-
-### 添加新工具
-
-在 `server/main.go` 中添加：
-
-```go
-case "tools/list":
-    return JSONRPCResponse{
-        JSONRPC: "2.0",
-        ID:      req.ID,
-        Result: map[string]interface{}{
-            "tools": []map[string]interface{}{
-                {
-                    "name":        "get_uuid",
-                    "description": "Generate a random UUID",
-                    // ...
-                },
-                {
-                    "name":        "get_time",
-                    "description": "Get current time",
-                    "input_schema": map[string]interface{}{
-                        "type":       "object",
-                        "properties": map[string]interface{}{
-                            "timezone": {
-                                "type":        "string",
-                                "description": "Timezone name",
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    }
-
-case "tools/call":
-    // ... 现有代码 ...
-    
-    if params.Name == "get_time" {
-        tz := "UTC"
-        if tzArg, ok := params.Arguments["timezone"].(string); ok {
-            tz = tzArg
-        }
-        currentTime := time.Now().Format("2006-01-02 15:04:05")
-        
-        return JSONRPCResponse{
-            JSONRPC: "2.0",
-            ID:      req.ID,
-            Result: map[string]interface{}{
-                "content": []map[string]interface{}{
-                    {
-                        "type": "text",
-                        "text": fmt.Sprintf("%s (%s)", currentTime, tz),
-                    },
-                },
-            },
-        }
-    }
-```
-
-Agent 会自动发现并使用新工具！
+- `pkg/mcp/README.md`
+- `pkg/mcp/model/PROTO_README.md`
+- `pkg/mcp/client/README.md`
+- `cmd/phase_2/3_mcp_stdio/agent/README.md`
 
 ## 参考资料
 
