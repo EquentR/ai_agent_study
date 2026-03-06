@@ -14,6 +14,27 @@ type ToolParam struct {
 	Required    bool
 }
 
+// ToolParams 使用可变参数构建工具参数列表，便于创建空参数列表或链式组织参数定义。
+func ToolParams(params ...ToolParam) []ToolParam {
+	return append([]ToolParam(nil), params...)
+}
+
+// Param 创建一个非必填的工具参数定义。
+func Param(name string, paramType string, description string) ToolParam {
+	return ToolParam{
+		Name:        name,
+		Type:        paramType,
+		Description: description,
+	}
+}
+
+// RequiredParam 创建一个必填的工具参数定义。
+func RequiredParam(name string, paramType string, description string) ToolParam {
+	param := Param(name, paramType, description)
+	param.Required = true
+	return param
+}
+
 // ToolHandler 是 server 端工具执行的标准处理函数签名。
 type ToolHandler func(ctx context.Context, arguments map[string]interface{}) (string, error)
 

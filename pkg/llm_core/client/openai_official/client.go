@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	openai "github.com/openai/openai-go"
+	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/packages/ssestream"
 	"github.com/openai/openai-go/responses"

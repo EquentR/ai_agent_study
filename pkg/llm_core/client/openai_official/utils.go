@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	openai "github.com/openai/openai-go"
+	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/responses"
 )
 
@@ -17,7 +17,7 @@ func buildResponseRequestParams(req model.ChatRequest) (responses.ResponseNewPar
 	}
 
 	params := responses.ResponseNewParams{
-		Model: responses.ResponsesModel(req.Model),
+		Model: req.Model,
 		Input: responses.ResponseNewParamsInputUnion{OfInputItemList: input},
 		Tools: modelToolsToResponse(req.Tools),
 	}

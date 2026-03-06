@@ -59,10 +59,10 @@ func main() {
 	sumTool, err := model.NewTypedTool(
 		"sum",
 		"计算两个整数之和",
-		[]model.ToolParam{
-			{Name: "a", Type: "integer", Description: "左操作数", Required: true},
-			{Name: "b", Type: "integer", Description: "右操作数", Required: true},
-		},
+		model.ToolParams(
+			model.RequiredParam("a", "integer", "左操作数"),
+			model.RequiredParam("b", "integer", "右操作数"),
+		),
 		func(ctx context.Context, args SumArgs) (int, error) {
 			return args.A + args.B, nil
 		},
@@ -134,6 +134,12 @@ if err != nil {
 - `model.NewTool(...)`：直接传入标准签名 `ToolHandler`
 - `model.NewTypedTool(...)`：带 `context.Context` 的强类型函数
 - `model.NewTypedToolNoContext(...)`：不带 `context.Context` 的强类型函数
+
+参数定义既可以继续直接传 `[]model.ToolParam`，也可以使用新增的函数式辅助方法：
+
+- `model.ToolParams(...)`：通过可变参数构建参数列表，`model.ToolParams()` 可直接表达空参数
+- `model.Param(...)`：创建非必填参数
+- `model.RequiredParam(...)`：创建必填参数
 
 这让 tool 的构建和 server 解耦，server 只关心注册与调度。
 
