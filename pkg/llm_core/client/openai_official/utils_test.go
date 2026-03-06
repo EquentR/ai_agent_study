@@ -117,6 +117,16 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 	if tool0["name"] != "lookup_weather" {
 		t.Fatalf("tool.name = %v, want lookup_weather", tool0["name"])
 	}
+	if tool0["strict"] != true {
+		t.Fatalf("tool.strict = %v, want true", tool0["strict"])
+	}
+	paramsObj, ok := tool0["parameters"].(map[string]any)
+	if !ok {
+		t.Fatalf("tool.parameters type = %T, want map[string]any", tool0["parameters"])
+	}
+	if paramsObj["additionalProperties"] != false {
+		t.Fatalf("tool.parameters.additionalProperties = %v, want false", paramsObj["additionalProperties"])
+	}
 
 	toolChoice, ok := payload["tool_choice"].(map[string]any)
 	if !ok {
@@ -171,6 +181,111 @@ func TestModelToolChoiceToResponseVariants(t *testing.T) {
 				t.Fatalf("tool choice map = %#v, want function name=%s", got, tc.wantValue)
 			}
 		})
+	}
+}
+
+func TestBuildResponseRequestParams_OptionalToolUsesNonStrictSchema(t *testing.T) {
+	req := model.ChatRequest{
+		Model: "gpt-5.4",
+		Messages: []model.Message{{
+			Role:    model.RoleUser,
+			Content: "Say hello",
+		}},
+		Tools: []model.Tool{{
+			Name:        "hello_world",
+			Description: "Say hello to someone",
+			Parameters: model.JSONSchema{
+				Type: "object",
+				Properties: map[string]model.SchemaProperty{
+					"name":  {Type: "string", Description: "Name to greet"},
+					"title": {Type: "string", Description: "Optional title"},
+				},
+				Required: []string{"name"},
+			},
+		}},
+	}
+
+	params, err := buildResponseRequestParams(req)
+	if err != nil {
+		t.Fatalf("buildResponseRequestParams() error = %v", err)
+	}
+
+	var payload map[string]any
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("json.Marshal(params) error = %v", err)
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal(payload) error = %v", err)
+	}
+
+	tools, ok := payload["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("tools = %#v, want length 1", payload["tools"])
+	}
+	tool0 := tools[0].(map[string]any)
+	if tool0["strict"] != false {
+		t.Fatalf("tool.strict = %v, want false", tool0["strict"])
+	}
+	paramsObj, ok := tool0["parameters"].(map[string]any)
+	if !ok {
+		t.Fatalf("tool.parameters type = %T, want map[string]any", tool0["parameters"])
+	}
+	required, ok := paramsObj["required"].([]any)
+	if !ok || len(required) != 1 || required[0] != "name" {
+		t.Fatalf("tool.parameters.required = %#v, want [name]", paramsObj["required"])
+	}
+}
+
+func TestBuildResponseRequestParams_NoArgToolNormalizesEmptySchema(t *testing.T) {
+	req := model.ChatRequest{
+		Model: "gpt-5.4",
+		Messages: []model.Message{{
+			Role:    model.RoleUser,
+			Content: "Generate a UUID",
+		}},
+		Tools: []model.Tool{{
+			Name:        "generate_uuid",
+			Description: "Generate a new UUID",
+			Parameters: model.JSONSchema{
+				Type: "object",
+			},
+		}},
+	}
+
+	params, err := buildResponseRequestParams(req)
+	if err != nil {
+		t.Fatalf("buildResponseRequestParams() error = %v", err)
+	}
+
+	var payload map[string]any
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("json.Marshal(params) error = %v", err)
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal(payload) error = %v", err)
+	}
+
+	tools, ok := payload["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("tools = %#v, want length 1", payload["tools"])
+	}
+	tool0 := tools[0].(map[string]any)
+	if tool0["strict"] != true {
+		t.Fatalf("tool.strict = %v, want true", tool0["strict"])
+	}
+	paramsObj, ok := tool0["parameters"].(map[string]any)
+	if !ok {
+		t.Fatalf("tool.parameters type = %T, want map[string]any", tool0["parameters"])
+	}
+	properties, ok := paramsObj["properties"].(map[string]any)
+	if !ok || len(properties) != 0 {
+		t.Fatalf("tool.parameters.properties = %#v, want empty map", paramsObj["properties"])
+	}
+	required, ok := paramsObj["required"].([]any)
+	if !ok || len(required) != 0 {
+		t.Fatalf("tool.parameters.required = %#v, want empty array", paramsObj["required"])
 	}
 }
 

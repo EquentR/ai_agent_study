@@ -131,6 +131,11 @@ func (s *Server) handleRequest(ctx context.Context, req model.JSONRPCRequest) mo
 				return model.NewJSONRPCErrorResponse(model.MethodNotFound, "tool not found", req.ID)
 			}
 
+			var argErr *model.ArgumentValidationError
+			if errors.As(err, &argErr) {
+				return model.NewJSONRPCErrorResponse(model.InvalidParams, err.Error(), req.ID)
+			}
+
 			return model.NewJSONRPCErrorResponse(model.InternalError, err.Error(), req.ID)
 		}
 

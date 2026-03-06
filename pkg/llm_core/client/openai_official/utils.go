@@ -88,20 +88,55 @@ func modelToolsToResponse(tools []model.Tool) []responses.ToolUnionParam {
 
 	out := make([]responses.ToolUnionParam, 0, len(tools))
 	for _, tool := range tools {
-		params := map[string]any{
-			"type":       tool.Parameters.Type,
-			"properties": tool.Parameters.Properties,
-			"required":   tool.Parameters.Required,
-		}
+		params := responseToolSchemaParameters(tool.Parameters)
+		strict := shouldUseStrictToolSchema(tool.Parameters)
 		out = append(out, responses.ToolUnionParam{OfFunction: &responses.FunctionToolParam{
 			Name:        tool.Name,
 			Description: openai.String(tool.Description),
 			Parameters:  params,
-			Strict:      openai.Bool(true),
+			Strict:      openai.Bool(strict),
 		}})
 	}
 
 	return out
+}
+
+func responseToolSchemaParameters(schema model.JSONSchema) map[string]any {
+	properties := schema.Properties
+	if properties == nil {
+		properties = map[string]model.SchemaProperty{}
+	}
+
+	required := schema.Required
+	if required == nil {
+		required = []string{}
+	}
+
+	return map[string]any{
+		"type":                 schema.Type,
+		"properties":           properties,
+		"required":             required,
+		"additionalProperties": false,
+	}
+}
+
+func shouldUseStrictToolSchema(schema model.JSONSchema) bool {
+	if len(schema.Properties) != len(schema.Required) {
+		return false
+	}
+
+	required := make(map[string]struct{}, len(schema.Required))
+	for _, name := range schema.Required {
+		required[name] = struct{}{}
+	}
+
+	for name := range schema.Properties {
+		if _, ok := required[name]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func modelToolChoiceToResponse(choice model.ToolChoice) (*responses.ResponseNewParamsToolChoiceUnion, error) {

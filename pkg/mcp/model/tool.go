@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ToolParam 定义工具参数，包含参数级说明。
@@ -46,6 +47,38 @@ type Tool struct {
 	Description string
 	Params      []ToolParam
 	Handler     ToolHandler
+}
+
+// ArgumentValidationError 表示工具调用参数不满足声明约束。
+type ArgumentValidationError struct {
+	Message    string
+	Missing    []string
+	Unexpected []string
+}
+
+func (e *ArgumentValidationError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	if len(e.Unexpected) == 1 {
+		return fmt.Sprintf("unexpected parameter %q", e.Unexpected[0])
+	}
+	if len(e.Unexpected) > 1 {
+		quoted := make([]string, 0, len(e.Unexpected))
+		for _, name := range e.Unexpected {
+			quoted = append(quoted, fmt.Sprintf("%q", name))
+		}
+		return fmt.Sprintf("unexpected parameters: %s", strings.Join(quoted, ", "))
+	}
+	if len(e.Missing) == 1 {
+		return fmt.Sprintf("missing required parameter %q", e.Missing[0])
+	}
+
+	quoted := make([]string, 0, len(e.Missing))
+	for _, name := range e.Missing {
+		quoted = append(quoted, fmt.Sprintf("%q", name))
+	}
+	return fmt.Sprintf("missing required parameters: %s", strings.Join(quoted, ", "))
 }
 
 // NewTool 使用标准处理函数创建一个已包装的 Tool。
@@ -133,7 +166,39 @@ func (t Tool) Call(ctx context.Context, arguments map[string]interface{}) (strin
 	if arguments == nil {
 		arguments = map[string]interface{}{}
 	}
+	if err := t.validateArguments(arguments); err != nil {
+		return "", err
+	}
 	return t.Handler(ctx, arguments)
+}
+
+func (t Tool) validateArguments(arguments map[string]interface{}) error {
+	declared := make(map[string]struct{}, len(t.Params))
+	missing := make([]string, 0)
+	for _, param := range t.Params {
+		declared[param.Name] = struct{}{}
+		if !param.Required {
+			continue
+		}
+		value, ok := arguments[param.Name]
+		if !ok || value == nil {
+			missing = append(missing, param.Name)
+		}
+	}
+
+	unexpected := make([]string, 0)
+	for name := range arguments {
+		if _, ok := declared[name]; !ok {
+			unexpected = append(unexpected, name)
+		}
+	}
+	if len(unexpected) > 0 {
+		return &ArgumentValidationError{Unexpected: unexpected}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return &ArgumentValidationError{Missing: missing}
 }
 
 func buildInputSchema(params []ToolParam) map[string]interface{} {
@@ -185,7 +250,7 @@ func decodeTypedArgs[T any](arguments map[string]interface{}) (T, error) {
 	var arg T
 	if err := json.Unmarshal(data, &arg); err != nil {
 		var zero T
-		return zero, fmt.Errorf("failed to decode tool arguments: %w", err)
+		return zero, &ArgumentValidationError{Message: fmt.Sprintf("failed to decode tool arguments: %v", err)}
 	}
 
 	return arg, nil

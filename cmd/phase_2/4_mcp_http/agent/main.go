@@ -1,7 +1,7 @@
 package main
 
 import (
-	"agent_study/pkg/llm_core/client/openai"
+	"agent_study/pkg/llm_core/client/openai_official"
 	"agent_study/pkg/llm_core/model"
 	mcpClient "agent_study/pkg/mcp/client"
 	mcpModel "agent_study/pkg/mcp/model"
@@ -15,7 +15,7 @@ import (
 func main() {
 	endpoint := flag.String("endpoint", "http://127.0.0.1:7888/mcp", "MCP HTTP endpoint")
 	question := flag.String("question", "请帮我生成一个UUID", "用户问题")
-	modelName := flag.String("model", "gpt-5.3-codex-xhigh", "模型名称")
+	modelName := flag.String("model", "gpt-5.4", "模型名称")
 	maxRounds := flag.Int("max-rounds", 4, "最多工具调用轮次")
 	flag.Parse()
 
@@ -37,8 +37,8 @@ func main() {
 	}
 
 	llmTools := convertMCPToolsToLLMTools(mcpTools)
-	//llmClient := openai_official.NewOpenAiOfficialClient(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_BASE_URL"), 0)
-	llmClient := openai.NewOpenAiClient(os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_API_KEY"))
+	llmClient := openai_official.NewOpenAiOfficialClient(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_BASE_URL"), 0)
+	//llmClient := openai.NewOpenAiClient(os.Getenv("OPENAI_BASE_URL"), os.Getenv("OPENAI_API_KEY"))
 
 	messages := []model.Message{
 		{
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	sp := model.SamplingParams{}
-	sp.SetTemperature(1.0)
+	//sp.SetTemperature(1.0)
 	//sp.SetTopP(1.0)
 
 	fmt.Println()

@@ -154,6 +154,151 @@ func TestCallToolWithTypedArgs(t *testing.T) {
 	}
 }
 
+func TestCallToolMissingRequiredArgsReturnsInvalidParams(t *testing.T) {
+	s := NewServer()
+	helloTool, err := model.NewTool(
+		"hello",
+		"Say hello",
+		model.ToolParams(
+			model.RequiredParam("name", "string", "Name to greet"),
+			model.Param("title", "string", "Optional title"),
+		),
+		func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+			return "ok", nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewTool() error = %v", err)
+	}
+
+	if err := s.RegisterTool(helloTool); err != nil {
+		t.Fatalf("RegisterTool() error = %v", err)
+	}
+
+	req := model.NewJSONRPCRequest("tools/call", model.ToolCallParams{
+		Name:      "hello",
+		Arguments: map[string]interface{}{},
+	}, 7)
+	body, _ := json.Marshal(req)
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	httpResp := httptest.NewRecorder()
+
+	s.NewHttpHandler().ServeHTTP(httpResp, httpReq)
+
+	if httpResp.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", httpResp.Code, http.StatusOK)
+	}
+
+	var rpcResp model.JSONRPCResponse
+	if err := json.Unmarshal(httpResp.Body.Bytes(), &rpcResp); err != nil {
+		t.Fatalf("unmarshal response error = %v", err)
+	}
+	if rpcResp.Error == nil {
+		t.Fatal("expected rpc error, got nil")
+	}
+	if rpcResp.Error.Code != model.InvalidParams {
+		t.Fatalf("rpc error code = %d, want %d", rpcResp.Error.Code, model.InvalidParams)
+	}
+	if !strings.Contains(rpcResp.Error.Message, `missing required parameter "name"`) {
+		t.Fatalf("rpc error message = %q, want missing required parameter name", rpcResp.Error.Message)
+	}
+}
+
+func TestCallToolWithInvalidTypedArgsReturnsInvalidParams(t *testing.T) {
+	s := NewServer()
+	sumTool, err := model.NewTypedTool(
+		"sum",
+		"Add two integers",
+		[]model.ToolParam{
+			{Name: "a", Type: "integer", Description: "Left operand", Required: true},
+			{Name: "b", Type: "integer", Description: "Right operand", Required: true},
+		},
+		func(ctx context.Context, args sumArgs) (int, error) {
+			return args.A + args.B, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewTypedTool() error = %v", err)
+	}
+	if err := s.RegisterTool(sumTool); err != nil {
+		t.Fatalf("RegisterTool() error = %v", err)
+	}
+
+	req := model.NewJSONRPCRequest("tools/call", model.ToolCallParams{
+		Name: "sum",
+		Arguments: map[string]interface{}{
+			"a": "oops",
+			"b": 4,
+		},
+	}, 8)
+	body, _ := json.Marshal(req)
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	httpResp := httptest.NewRecorder()
+
+	s.NewHttpHandler().ServeHTTP(httpResp, httpReq)
+
+	var rpcResp model.JSONRPCResponse
+	if err := json.Unmarshal(httpResp.Body.Bytes(), &rpcResp); err != nil {
+		t.Fatalf("unmarshal response error = %v", err)
+	}
+	if rpcResp.Error == nil {
+		t.Fatal("expected rpc error, got nil")
+	}
+	if rpcResp.Error.Code != model.InvalidParams {
+		t.Fatalf("rpc error code = %d, want %d", rpcResp.Error.Code, model.InvalidParams)
+	}
+	if !strings.Contains(rpcResp.Error.Message, "failed to decode tool arguments") {
+		t.Fatalf("rpc error message = %q, want decode error", rpcResp.Error.Message)
+	}
+}
+
+func TestCallToolWithUnexpectedArgsReturnsInvalidParams(t *testing.T) {
+	s := NewServer()
+	helloTool, err := model.NewTool(
+		"hello",
+		"Say hello",
+		model.ToolParams(
+			model.RequiredParam("name", "string", "Name to greet"),
+		),
+		func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+			return "ok", nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewTool() error = %v", err)
+	}
+	if err := s.RegisterTool(helloTool); err != nil {
+		t.Fatalf("RegisterTool() error = %v", err)
+	}
+
+	req := model.NewJSONRPCRequest("tools/call", model.ToolCallParams{
+		Name: "hello",
+		Arguments: map[string]interface{}{
+			"name":  "Alice",
+			"title": "Dr.",
+		},
+	}, 9)
+	body, _ := json.Marshal(req)
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	httpResp := httptest.NewRecorder()
+
+	s.NewHttpHandler().ServeHTTP(httpResp, httpReq)
+
+	var rpcResp model.JSONRPCResponse
+	if err := json.Unmarshal(httpResp.Body.Bytes(), &rpcResp); err != nil {
+		t.Fatalf("unmarshal response error = %v", err)
+	}
+	if rpcResp.Error == nil {
+		t.Fatal("expected rpc error, got nil")
+	}
+	if rpcResp.Error.Code != model.InvalidParams {
+		t.Fatalf("rpc error code = %d, want %d", rpcResp.Error.Code, model.InvalidParams)
+	}
+	if !strings.Contains(rpcResp.Error.Message, `unexpected parameter "title"`) {
+		t.Fatalf("rpc error message = %q, want unexpected parameter title", rpcResp.Error.Message)
+	}
+}
+
 func TestRegisterToolSupportsBatchRegistration(t *testing.T) {
 	s := NewServer()
 	sumTool, err := model.NewTypedTool(

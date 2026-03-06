@@ -16,7 +16,7 @@ func main() {
 	helloTool, err := mcpModel.NewTool("hello_world",
 		"Say hello to someone",
 		mcpModel.ToolParams(
-			mcpModel.Param("name", "string", "The name of the person to say hello to"),
+			mcpModel.RequiredParam("name", "string", "The name of the person to say hello to"),
 		),
 		handleHello,
 	)
