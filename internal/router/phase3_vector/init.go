@@ -1,8 +1,7 @@
-package phase1router
+package phase3_vector_router
 
 import (
 	"agent_study/internal/handler"
-	phase1handler "agent_study/internal/handler/phase1"
 	"agent_study/internal/router"
 
 	"github.com/gin-gonic/gin"
@@ -11,8 +10,6 @@ import (
 var (
 	registers = []router.Register{
 		handler.Register,
-		phase1handler.PromptRegister,
-		phase1handler.ConversationRegister,
 	}
 )
 

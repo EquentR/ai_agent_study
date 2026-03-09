@@ -6,9 +6,12 @@ import (
 )
 
 type Config struct {
-	Server Server      `yaml:"server"`
-	Sqlite db.Database `yaml:"sqlite"`
-	Log    log.Config  `yaml:"log"`
+	Server    Server            `yaml:"server"`
+	Sqlite    db.Database       `yaml:"sqlite"`
+	Log       log.Config        `yaml:"log"`
+	LLM       LLMProvider       `yaml:"llmProvider"`
+	Embedding EmbeddingProvider `yaml:"embeddingProvider"`
+	Rerank    RerankingProvider `yaml:"rerankProvider"`
 }
 
 type Server struct {

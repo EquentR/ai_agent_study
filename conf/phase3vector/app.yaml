@@ -1,0 +1,43 @@
+server:
+  host: "0.0.0.0"
+  port: 18080
+  apiBasePath: /api/v1
+  staticPath: static/web/phase1
+
+sqlite:
+  name: phase3vector
+  autoCreate: true
+  inMemory: false
+  dbDir: data/phase3vector/
+  logLevel: info
+  params:
+    - _pragma=journal_mode(WAL)
+    - _pragma=busy_timeout(30000)
+    - _txlock=exclusive
+
+log:
+  level: info
+  file: logs/phase3vector.log
+  rotation: true
+  maxSize: 100
+  maxAge: 30
+  maxBackups: 7
+  compress: true
+
+llmProvider:
+  model: "gpt-5.4"
+  type: openai
+  baseUrl: "https://api.openai.com/v1"
+  apiKey: "your-openai-api-key" # 可以通过环境变量或其他安全方式提供
+
+embeddingProvider:
+  model: "qwen3-embedding-8b"
+  type: openai
+  baseUrl: "https://api.openai.com/v1"
+  apiKey: "your-openai-api-key" # 可以通过环境变量或其他安全方式提供
+
+rerankProvider:
+  model: "qwen3-reranker-8b"
+  type: openai
+  baseUrl: "https://api.openai.com/v1"
+  apiKey: "your-openai-api-key"
