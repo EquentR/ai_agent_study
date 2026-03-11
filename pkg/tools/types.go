@@ -1,4 +1,4 @@
-package model
+package tools
 
 type Tool struct {
 	Name        string     `json:"name"`
