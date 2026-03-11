@@ -2,6 +2,7 @@ package openai
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"errors"
 
 	"github.com/sashabaranov/go-openai"
@@ -72,12 +73,12 @@ func extractChatResponse(resp openai.ChatCompletionResponse) (model.ChatResponse
 	}
 
 	msg := resp.Choices[0].Message
-	toolCalls := make([]model.ToolCall, 0, len(msg.ToolCalls))
+	toolCalls := make([]types.ToolCall, 0, len(msg.ToolCalls))
 	for _, tc := range msg.ToolCalls {
 		if tc.Type != "" && tc.Type != openai.ToolTypeFunction {
 			continue
 		}
-		toolCalls = append(toolCalls, model.ToolCall{
+		toolCalls = append(toolCalls, types.ToolCall{
 			ID:        tc.ID,
 			Name:      tc.Function.Name,
 			Arguments: tc.Function.Arguments,
@@ -88,15 +89,23 @@ func extractChatResponse(resp openai.ChatCompletionResponse) (model.ChatResponse
 		Content:   msg.Content,
 		ToolCalls: toolCalls,
 		Usage: model.TokenUsage{
-			PromptTokens:     int64(resp.Usage.PromptTokens),
-			CompletionTokens: int64(resp.Usage.CompletionTokens),
-			TotalTokens:      int64(resp.Usage.TotalTokens),
+			PromptTokens:       int64(resp.Usage.PromptTokens),
+			CachedPromptTokens: cachedPromptTokens(resp.Usage),
+			CompletionTokens:   int64(resp.Usage.CompletionTokens),
+			TotalTokens:        int64(resp.Usage.TotalTokens),
 		},
 	}, nil
 }
 
+func cachedPromptTokens(usage openai.Usage) int64 {
+	if usage.PromptTokensDetails == nil {
+		return 0
+	}
+	return int64(usage.PromptTokensDetails.CachedTokens)
+}
+
 // modelToolsToOpenAI 将内部 Tool 定义映射为 OpenAI 函数工具定义。
-func modelToolsToOpenAI(tools []model.Tool) []openai.Tool {
+func modelToolsToOpenAI(tools []types.Tool) []openai.Tool {
 	if len(tools) == 0 {
 		return nil
 	}
@@ -126,15 +135,15 @@ func modelToolsToOpenAI(tools []model.Tool) []openai.Tool {
 // 1) "auto" / "none" / "required" 字符串
 // 2) 指定函数名的结构体 ToolChoice
 // 3) nil（未设置）
-func modelToolChoiceToOpenAI(choice model.ToolChoice) (any, error) {
+func modelToolChoiceToOpenAI(choice types.ToolChoice) (any, error) {
 	switch choice.Type {
 	case "":
 		return nil, nil
-	case model.ToolAuto:
+	case types.ToolAuto:
 		return "auto", nil
-	case model.ToolNone:
+	case types.ToolNone:
 		return "none", nil
-	case model.ToolForce:
+	case types.ToolForce:
 		if choice.Name == "" {
 			return "required", nil
 		}

@@ -2,6 +2,7 @@ package openai_official
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"sync"
 	"testing"
 	"time"
@@ -43,11 +44,11 @@ func TestResolveStreamResponseType(t *testing.T) {
 	tests := []struct {
 		name         string
 		finishReason string
-		toolCalls    []model.ToolCall
+		toolCalls    []types.ToolCall
 		want         model.StreamResponseType
 	}{
 		{name: "tool calls by finish reason", finishReason: "tool_calls", want: model.StreamResponseToolCall},
-		{name: "tool calls by payload", toolCalls: []model.ToolCall{{Name: "lookup_weather"}}, want: model.StreamResponseToolCall},
+		{name: "tool calls by payload", toolCalls: []types.ToolCall{{Name: "lookup_weather"}}, want: model.StreamResponseToolCall},
 		{name: "text", finishReason: "stop", want: model.StreamResponseText},
 		{name: "unknown", want: model.StreamResponseUnknown},
 	}

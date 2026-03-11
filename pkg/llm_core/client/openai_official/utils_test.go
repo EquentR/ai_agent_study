@@ -2,6 +2,7 @@ package openai_official
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"encoding/json"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 		},
 		Messages: []model.Message{
 			{Role: model.RoleSystem, Content: "You are helpful"},
-			{Role: model.RoleAssistant, Content: "I will call a tool", ToolCalls: []model.ToolCall{{
+			{Role: model.RoleAssistant, Content: "I will call a tool", ToolCalls: []types.ToolCall{{
 				ID:        "call_1",
 				Name:      "lookup_weather",
 				Arguments: `{"city":"Beijing"}`,
@@ -29,18 +30,18 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 			{Role: model.RoleTool, ToolCallId: "call_1", Content: `{"temp":26}`},
 			{Role: model.RoleUser, Content: "继续"},
 		},
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "lookup_weather",
 			Description: "查询天气",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"city": {Type: "string", Description: "城市名"},
 				},
 				Required: []string{"city"},
 			},
 		}},
-		ToolChoice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"},
+		ToolChoice: types.ToolChoice{Type: types.ToolForce, Name: "lookup_weather"},
 	}
 
 	params, err := buildResponseRequestParams(req)
@@ -140,14 +141,14 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 func TestModelToolChoiceToResponseVariants(t *testing.T) {
 	tests := []struct {
 		name      string
-		choice    model.ToolChoice
+		choice    types.ToolChoice
 		wantType  string
 		wantValue string
 	}{
-		{name: "auto", choice: model.ToolChoice{Type: model.ToolAuto}, wantType: "string", wantValue: "auto"},
-		{name: "none", choice: model.ToolChoice{Type: model.ToolNone}, wantType: "string", wantValue: "none"},
-		{name: "force required", choice: model.ToolChoice{Type: model.ToolForce}, wantType: "string", wantValue: "required"},
-		{name: "force named", choice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"}, wantType: "map", wantValue: "lookup_weather"},
+		{name: "auto", choice: types.ToolChoice{Type: types.ToolAuto}, wantType: "string", wantValue: "auto"},
+		{name: "none", choice: types.ToolChoice{Type: types.ToolNone}, wantType: "string", wantValue: "none"},
+		{name: "force required", choice: types.ToolChoice{Type: types.ToolForce}, wantType: "string", wantValue: "required"},
+		{name: "force named", choice: types.ToolChoice{Type: types.ToolForce, Name: "lookup_weather"}, wantType: "map", wantValue: "lookup_weather"},
 	}
 
 	for _, tc := range tests {
@@ -191,12 +192,12 @@ func TestBuildResponseRequestParams_OptionalToolUsesNonStrictSchema(t *testing.T
 			Role:    model.RoleUser,
 			Content: "Say hello",
 		}},
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "hello_world",
 			Description: "Say hello to someone",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"name":  {Type: "string", Description: "Name to greet"},
 					"title": {Type: "string", Description: "Optional title"},
 				},
@@ -244,10 +245,10 @@ func TestBuildResponseRequestParams_NoArgToolNormalizesEmptySchema(t *testing.T)
 			Role:    model.RoleUser,
 			Content: "Generate a UUID",
 		}},
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "generate_uuid",
 			Description: "Generate a new UUID",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
 			},
 		}},
@@ -307,7 +308,10 @@ func TestExtractChatResponse_WithTextToolCallsAndUsage(t *testing.T) {
 			},
 		},
 		Usage: responses.ResponseUsage{
-			InputTokens:  11,
+			InputTokens: 11,
+			InputTokensDetails: responses.ResponseUsageInputTokensDetails{
+				CachedTokens: 5,
+			},
 			OutputTokens: 7,
 			TotalTokens:  18,
 		},
@@ -329,5 +333,8 @@ func TestExtractChatResponse_WithTextToolCallsAndUsage(t *testing.T) {
 	}
 	if got.Usage.PromptTokens != 11 || got.Usage.CompletionTokens != 7 || got.Usage.TotalTokens != 18 {
 		t.Fatalf("usage = %#v, want {11,7,18}", got.Usage)
+	}
+	if got.Usage.CachedPromptTokens != 5 {
+		t.Fatalf("cached prompt tokens = %d, want 5", got.Usage.CachedPromptTokens)
 	}
 }

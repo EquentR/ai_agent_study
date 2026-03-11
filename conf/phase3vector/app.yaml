@@ -29,6 +29,14 @@ llmProvider:
   type: openai
   baseUrl: "https://api.openai.com/v1"
   apiKey: "your-openai-api-key" # 可以通过环境变量或其他安全方式提供
+  cost:
+    input: 0.25 # USD / 1M input tokens
+    cachedInput: 0.025 # USD / 1M cached input tokens
+    output: 2 # USD / 1M output tokens
+  context:
+    max: 128000
+    input: 120000
+    output: 8000
 
 embeddingProvider:
   model: "qwen3-embedding-8b"

@@ -3,6 +3,7 @@ package openai_official
 import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/llm_core/tools"
+	tools2 "agent_study/pkg/types"
 	"context"
 	"errors"
 	"io"
@@ -171,7 +172,7 @@ type responseStream struct {
 	firstTok          sync.Once
 	asyncTokenCounter *tools.AsyncTokenCounter
 	toolCallsMu       sync.RWMutex
-	toolCalls         []model.ToolCall
+	toolCalls         []tools2.ToolCall
 
 	errMu sync.RWMutex
 	err   error
@@ -236,14 +237,14 @@ func (s *responseStream) Stats() *model.StreamStats {
 	return &copyStats
 }
 
-func (s *responseStream) ToolCalls() []model.ToolCall {
+func (s *responseStream) ToolCalls() []tools2.ToolCall {
 	s.toolCallsMu.RLock()
 	defer s.toolCallsMu.RUnlock()
 
 	if len(s.toolCalls) == 0 {
 		return nil
 	}
-	out := make([]model.ToolCall, len(s.toolCalls))
+	out := make([]tools2.ToolCall, len(s.toolCalls))
 	copy(out, s.toolCalls)
 	return out
 }
@@ -266,7 +267,7 @@ func (s *responseStream) FinishReason() string {
 	return s.stats.FinishReason
 }
 
-func (s *responseStream) setToolCalls(calls []model.ToolCall) {
+func (s *responseStream) setToolCalls(calls []tools2.ToolCall) {
 	s.toolCallsMu.Lock()
 	defer s.toolCallsMu.Unlock()
 
@@ -275,6 +276,6 @@ func (s *responseStream) setToolCalls(calls []model.ToolCall) {
 		return
 	}
 
-	s.toolCalls = make([]model.ToolCall, len(calls))
+	s.toolCalls = make([]tools2.ToolCall, len(calls))
 	copy(s.toolCalls, calls)
 }

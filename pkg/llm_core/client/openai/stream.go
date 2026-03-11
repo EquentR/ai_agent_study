@@ -3,6 +3,7 @@ package openai
 import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/llm_core/tools"
+	tools2 "agent_study/pkg/types"
 	"context"
 	"sort"
 	"strings"
@@ -20,7 +21,7 @@ type openAIStream struct {
 	startTime         time.Time
 	firstTok          sync.Once
 	asyncTokenCounter *tools.AsyncTokenCounter // 异步token计数器
-	toolCalls         []model.ToolCall
+	toolCalls         []tools2.ToolCall
 }
 
 func (s *openAIStream) Recv() (string, error) {
@@ -51,11 +52,11 @@ func (s *openAIStream) Stats() *model.StreamStats {
 	return s.stats
 }
 
-func (s *openAIStream) ToolCalls() []model.ToolCall {
+func (s *openAIStream) ToolCalls() []tools2.ToolCall {
 	if len(s.toolCalls) == 0 {
 		return nil
 	}
-	out := make([]model.ToolCall, len(s.toolCalls))
+	out := make([]tools2.ToolCall, len(s.toolCalls))
 	copy(out, s.toolCalls)
 	return out
 }
@@ -69,12 +70,12 @@ func (s *openAIStream) FinishReason() string {
 }
 
 type streamToolCallAccumulator struct {
-	calls map[int]model.ToolCall
+	calls map[int]tools2.ToolCall
 }
 
 func newStreamToolCallAccumulator() *streamToolCallAccumulator {
 	return &streamToolCallAccumulator{
-		calls: make(map[int]model.ToolCall),
+		calls: make(map[int]tools2.ToolCall),
 	}
 }
 
@@ -100,7 +101,7 @@ func (a *streamToolCallAccumulator) Append(toolCalls []openai.ToolCall) {
 	}
 }
 
-func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
+func (a *streamToolCallAccumulator) ToolCalls() []tools2.ToolCall {
 	if len(a.calls) == 0 {
 		return nil
 	}
@@ -110,14 +111,14 @@ func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
 	}
 	sort.Ints(indexes)
 
-	out := make([]model.ToolCall, 0, len(indexes))
+	out := make([]tools2.ToolCall, 0, len(indexes))
 	for _, idx := range indexes {
 		out = append(out, a.calls[idx])
 	}
 	return out
 }
 
-func resolveStreamResponseType(finishReason string, toolCalls []model.ToolCall) model.StreamResponseType {
+func resolveStreamResponseType(finishReason string, toolCalls []tools2.ToolCall) model.StreamResponseType {
 	if strings.EqualFold(finishReason, "tool_calls") || len(toolCalls) > 0 {
 		return model.StreamResponseToolCall
 	}

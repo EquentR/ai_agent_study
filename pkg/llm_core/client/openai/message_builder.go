@@ -2,6 +2,7 @@ package openai
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -67,7 +68,7 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 	return msgs, promptMessages, nil
 }
 
-func modelToolCallsToOpenAI(toolCalls []model.ToolCall) []openai.ToolCall {
+func modelToolCallsToOpenAI(toolCalls []types.ToolCall) []openai.ToolCall {
 	if len(toolCalls) == 0 {
 		return nil
 	}

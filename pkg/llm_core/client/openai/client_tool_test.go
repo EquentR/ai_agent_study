@@ -2,6 +2,7 @@ package openai
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"testing"
 
 	goopenai "github.com/sashabaranov/go-openai"
@@ -15,18 +16,18 @@ func TestBuildChatCompletionRequest_WithTools(t *testing.T) {
 			Content: "查下北京天气",
 		}},
 		MaxTokens: 256,
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "lookup_weather",
 			Description: "查询天气",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"city": {Type: "string", Description: "城市名"},
 				},
 				Required: []string{"city"},
 			},
 		}},
-		ToolChoice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"},
+		ToolChoice: types.ToolChoice{Type: types.ToolForce, Name: "lookup_weather"},
 	}
 
 	oaiReq, err := buildChatCompletionRequest(req)
@@ -69,6 +70,9 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 			PromptTokens:     12,
 			CompletionTokens: 8,
 			TotalTokens:      20,
+			PromptTokensDetails: &goopenai.PromptTokensDetails{
+				CachedTokens: 4,
+			},
 		},
 	}
 
@@ -89,6 +93,9 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 	if resp.Usage.TotalTokens != 20 {
 		t.Fatalf("resp.Usage.TotalTokens = %d, want 20", resp.Usage.TotalTokens)
 	}
+	if resp.Usage.CachedPromptTokens != 4 {
+		t.Fatalf("resp.Usage.CachedPromptTokens = %d, want 4", resp.Usage.CachedPromptTokens)
+	}
 }
 
 func TestBuildChatCompletionStreamRequest_WithTools(t *testing.T) {
@@ -99,18 +106,18 @@ func TestBuildChatCompletionStreamRequest_WithTools(t *testing.T) {
 			Content: "查下北京天气",
 		}},
 		MaxTokens: 256,
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "lookup_weather",
 			Description: "查询天气",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"city": {Type: "string", Description: "城市名"},
 				},
 				Required: []string{"city"},
 			},
 		}},
-		ToolChoice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"},
+		ToolChoice: types.ToolChoice{Type: types.ToolForce, Name: "lookup_weather"},
 	}
 
 	oaiReq, _, err := buildChatCompletionStreamRequest(req)

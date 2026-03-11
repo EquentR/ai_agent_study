@@ -2,6 +2,7 @@ package google
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,7 +18,7 @@ import (
 
 type streamToolCallAccumulator struct {
 	mu    sync.Mutex
-	calls map[string]model.ToolCall
+	calls map[string]types.ToolCall
 	order []string
 }
 
@@ -26,7 +27,7 @@ type streamToolCallAccumulator struct {
 // 与 OpenAI 不同，GenAI 的函数调用通常以完整对象 part 形式出现；
 // 这里仍做增量聚合，兼容多 chunk 重复更新场景。
 func newStreamToolCallAccumulator() *streamToolCallAccumulator {
-	return &streamToolCallAccumulator{calls: make(map[string]model.ToolCall)}
+	return &streamToolCallAccumulator{calls: make(map[string]types.ToolCall)}
 }
 
 // Append 记录当前 chunk 中观察到的函数调用 part。
@@ -70,7 +71,7 @@ func (a *streamToolCallAccumulator) Append(parts []*genai.Part) {
 	}
 }
 
-func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
+func (a *streamToolCallAccumulator) ToolCalls() []types.ToolCall {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -88,14 +89,14 @@ func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
 		sort.Strings(keys)
 	}
 
-	out := make([]model.ToolCall, 0, len(keys))
+	out := make([]types.ToolCall, 0, len(keys))
 	for _, key := range keys {
 		out = append(out, a.calls[key])
 	}
 	return out
 }
 
-func resolveStreamResponseType(finishReason string, toolCalls []model.ToolCall) model.StreamResponseType {
+func resolveStreamResponseType(finishReason string, toolCalls []types.ToolCall) model.StreamResponseType {
 	// 与 openai 适配层保持一致：
 	// 一旦存在 tool calls，优先判定为工具调用响应。
 	if len(toolCalls) > 0 {
@@ -122,7 +123,7 @@ type genAIStream struct {
 	stats     *model.StreamStats
 	startTime time.Time
 	firstTok  sync.Once
-	toolCalls []model.ToolCall
+	toolCalls []types.ToolCall
 
 	errMu sync.RWMutex
 	err   error
@@ -182,11 +183,11 @@ func (s *genAIStream) Context() context.Context { return s.ctx }
 
 func (s *genAIStream) Stats() *model.StreamStats { return s.stats }
 
-func (s *genAIStream) ToolCalls() []model.ToolCall {
+func (s *genAIStream) ToolCalls() []types.ToolCall {
 	if len(s.toolCalls) == 0 {
 		return nil
 	}
-	out := make([]model.ToolCall, len(s.toolCalls))
+	out := make([]types.ToolCall, len(s.toolCalls))
 	copy(out, s.toolCalls)
 	return out
 }

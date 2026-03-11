@@ -2,6 +2,7 @@ package openai_official
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"errors"
 	"fmt"
 	"strings"
@@ -81,7 +82,7 @@ func toResponseRole(role string) responses.EasyInputMessageRole {
 	}
 }
 
-func modelToolsToResponse(tools []model.Tool) []responses.ToolUnionParam {
+func modelToolsToResponse(tools []types.Tool) []responses.ToolUnionParam {
 	if len(tools) == 0 {
 		return nil
 	}
@@ -101,10 +102,10 @@ func modelToolsToResponse(tools []model.Tool) []responses.ToolUnionParam {
 	return out
 }
 
-func responseToolSchemaParameters(schema model.JSONSchema) map[string]any {
+func responseToolSchemaParameters(schema types.JSONSchema) map[string]any {
 	properties := schema.Properties
 	if properties == nil {
-		properties = map[string]model.SchemaProperty{}
+		properties = map[string]types.SchemaProperty{}
 	}
 
 	required := schema.Required
@@ -120,7 +121,7 @@ func responseToolSchemaParameters(schema model.JSONSchema) map[string]any {
 	}
 }
 
-func shouldUseStrictToolSchema(schema model.JSONSchema) bool {
+func shouldUseStrictToolSchema(schema types.JSONSchema) bool {
 	if len(schema.Properties) != len(schema.Required) {
 		return false
 	}
@@ -139,17 +140,17 @@ func shouldUseStrictToolSchema(schema model.JSONSchema) bool {
 	return true
 }
 
-func modelToolChoiceToResponse(choice model.ToolChoice) (*responses.ResponseNewParamsToolChoiceUnion, error) {
+func modelToolChoiceToResponse(choice types.ToolChoice) (*responses.ResponseNewParamsToolChoiceUnion, error) {
 	switch choice.Type {
 	case "":
 		return nil, nil
-	case model.ToolAuto:
+	case types.ToolAuto:
 		u := responses.ResponseNewParamsToolChoiceUnion{OfToolChoiceMode: openai.Opt(responses.ToolChoiceOptionsAuto)}
 		return &u, nil
-	case model.ToolNone:
+	case types.ToolNone:
 		u := responses.ResponseNewParamsToolChoiceUnion{OfToolChoiceMode: openai.Opt(responses.ToolChoiceOptionsNone)}
 		return &u, nil
-	case model.ToolForce:
+	case types.ToolForce:
 		if strings.TrimSpace(choice.Name) == "" {
 			u := responses.ResponseNewParamsToolChoiceUnion{OfToolChoiceMode: openai.Opt(responses.ToolChoiceOptionsRequired)}
 			return &u, nil
@@ -166,12 +167,12 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 		return model.ChatResponse{}, errors.New("openai responses returned nil response")
 	}
 
-	toolCalls := make([]model.ToolCall, 0)
+	toolCalls := make([]types.ToolCall, 0)
 	for _, item := range resp.Output {
 		if item.Type != "function_call" {
 			continue
 		}
-		toolCalls = append(toolCalls, model.ToolCall{
+		toolCalls = append(toolCalls, types.ToolCall{
 			ID:        item.CallID,
 			Name:      item.Name,
 			Arguments: item.Arguments,
@@ -190,8 +191,9 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 
 func toModelUsage(usage responses.ResponseUsage) model.TokenUsage {
 	return model.TokenUsage{
-		PromptTokens:     usage.InputTokens,
-		CompletionTokens: usage.OutputTokens,
-		TotalTokens:      usage.TotalTokens,
+		PromptTokens:       usage.InputTokens,
+		CachedPromptTokens: usage.InputTokensDetails.CachedTokens,
+		CompletionTokens:   usage.OutputTokens,
+		TotalTokens:        usage.TotalTokens,
 	}
 }

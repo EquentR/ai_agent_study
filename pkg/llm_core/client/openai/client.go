@@ -161,6 +161,7 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 				// 处理usage数据（如果API返回）
 				if chunk.Usage != nil && chunk.Usage.TotalTokens > 0 {
 					s.stats.Usage.PromptTokens = int64(chunk.Usage.PromptTokens)
+					s.stats.Usage.CachedPromptTokens = cachedPromptTokens(*chunk.Usage)
 					s.stats.Usage.CompletionTokens = int64(chunk.Usage.CompletionTokens)
 					s.stats.Usage.TotalTokens = int64(chunk.Usage.TotalTokens)
 				}

@@ -2,6 +2,7 @@ package google
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -293,7 +294,7 @@ func parseToolResponseContent(content string) (map[string]any, error) {
 	return map[string]any{"output": content}, nil
 }
 
-func modelToolsToGenAI(tools []model.Tool) []*genai.Tool {
+func modelToolsToGenAI(tools []types.Tool) []*genai.Tool {
 	if len(tools) == 0 {
 		return nil
 	}
@@ -316,7 +317,7 @@ func modelToolsToGenAI(tools []model.Tool) []*genai.Tool {
 	return result
 }
 
-func modelToolChoiceToGenAI(choice model.ToolChoice) (*genai.ToolConfig, error) {
+func modelToolChoiceToGenAI(choice types.ToolChoice) (*genai.ToolConfig, error) {
 	// ToolChoice 映射：
 	// - auto  -> 模型自行决定是否调用工具
 	// - none  -> 禁用工具调用，仅走文本回复
@@ -324,11 +325,11 @@ func modelToolChoiceToGenAI(choice model.ToolChoice) (*genai.ToolConfig, error) 
 	switch choice.Type {
 	case "":
 		return nil, nil
-	case model.ToolAuto:
+	case types.ToolAuto:
 		return &genai.ToolConfig{FunctionCallingConfig: &genai.FunctionCallingConfig{Mode: genai.FunctionCallingConfigModeAuto}}, nil
-	case model.ToolNone:
+	case types.ToolNone:
 		return &genai.ToolConfig{FunctionCallingConfig: &genai.FunctionCallingConfig{Mode: genai.FunctionCallingConfigModeNone}}, nil
-	case model.ToolForce:
+	case types.ToolForce:
 		cfg := &genai.FunctionCallingConfig{Mode: genai.FunctionCallingConfigModeAny}
 		if choice.Name != "" {
 			cfg.AllowedFunctionNames = []string{choice.Name}
@@ -364,13 +365,13 @@ func extractChatResponse(resp *genai.GenerateContentResponse) (model.ChatRespons
 	}, nil
 }
 
-func extractContentAndToolCalls(content *genai.Content) (string, []model.ToolCall, error) {
+func extractContentAndToolCalls(content *genai.Content) (string, []types.ToolCall, error) {
 	if content == nil {
 		return "", nil, nil
 	}
 
 	var textBuilder strings.Builder
-	toolCalls := make([]model.ToolCall, 0)
+	toolCalls := make([]types.ToolCall, 0)
 
 	for _, part := range content.Parts {
 		if part == nil {
@@ -385,7 +386,7 @@ func extractContentAndToolCalls(content *genai.Content) (string, []model.ToolCal
 			if err != nil {
 				return "", nil, err
 			}
-			toolCalls = append(toolCalls, model.ToolCall{
+			toolCalls = append(toolCalls, types.ToolCall{
 				ID:               part.FunctionCall.ID,
 				Name:             part.FunctionCall.Name,
 				Arguments:        string(args),
@@ -405,9 +406,12 @@ func toModelUsage(usage *genai.GenerateContentResponseUsageMetadata) model.Token
 	if usage == nil {
 		return model.TokenUsage{}
 	}
+	// Gemini 会把 tool-use、cached content、thoughts 等 token 分散在不同字段里，
+	// 这里统一折算成项目内部的输入/缓存输入/输出统计口径。
 	return model.TokenUsage{
-		PromptTokens:     int64(usage.PromptTokenCount),
-		CompletionTokens: int64(usage.CandidatesTokenCount),
-		TotalTokens:      int64(usage.TotalTokenCount),
+		PromptTokens:       int64(usage.PromptTokenCount) + int64(usage.ToolUsePromptTokenCount),
+		CachedPromptTokens: int64(usage.CachedContentTokenCount),
+		CompletionTokens:   int64(usage.CandidatesTokenCount) + int64(usage.ThoughtsTokenCount),
+		TotalTokens:        int64(usage.TotalTokenCount),
 	}
 }

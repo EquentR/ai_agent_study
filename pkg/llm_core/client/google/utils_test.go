@@ -2,6 +2,7 @@ package google
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"testing"
 
 	genai "google.golang.org/genai"
@@ -15,18 +16,18 @@ func TestBuildGenerateContentRequest_WithToolsAndToolChoice(t *testing.T) {
 			Content: "查一下北京天气",
 		}},
 		MaxTokens: 256,
-		Tools: []model.Tool{{
+		Tools: []types.Tool{{
 			Name:        "lookup_weather",
 			Description: "查询天气",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"city": {Type: "string", Description: "城市"},
 				},
 				Required: []string{"city"},
 			},
 		}},
-		ToolChoice: model.ToolChoice{Type: model.ToolForce, Name: "lookup_weather"},
+		ToolChoice: types.ToolChoice{Type: types.ToolForce, Name: "lookup_weather"},
 	}
 
 	_, cfg, promptMessages, err := buildGenerateContentRequest(req)
@@ -65,7 +66,7 @@ func TestBuildGenAIMessages_WithAssistantToolCallsAndToolResponse(t *testing.T) 
 		{Role: model.RoleUser, Content: "上海天气怎么样"},
 		{
 			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []types.ToolCall{{
 				ID:               "call_1",
 				Name:             "lookup_weather",
 				Arguments:        `{"city":"Shanghai"}`,
@@ -138,9 +139,12 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 			},
 		}},
 		UsageMetadata: &genai.GenerateContentResponseUsageMetadata{
-			PromptTokenCount:     10,
-			CandidatesTokenCount: 6,
-			TotalTokenCount:      16,
+			PromptTokenCount:        10,
+			CachedContentTokenCount: 3,
+			CandidatesTokenCount:    6,
+			ToolUsePromptTokenCount: 2,
+			ThoughtsTokenCount:      4,
+			TotalTokenCount:         22,
 		},
 	})
 	if err != nil {
@@ -156,7 +160,16 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 	if resp.ToolCalls[0].Arguments != `{"city":"Beijing"}` {
 		t.Fatalf("tool call arguments = %q, want %q", resp.ToolCalls[0].Arguments, `{"city":"Beijing"}`)
 	}
-	if resp.Usage.TotalTokens != 16 {
-		t.Fatalf("resp.Usage.TotalTokens = %d, want 16", resp.Usage.TotalTokens)
+	if resp.Usage.PromptTokens != 12 {
+		t.Fatalf("resp.Usage.PromptTokens = %d, want 12", resp.Usage.PromptTokens)
+	}
+	if resp.Usage.CompletionTokens != 10 {
+		t.Fatalf("resp.Usage.CompletionTokens = %d, want 10", resp.Usage.CompletionTokens)
+	}
+	if resp.Usage.TotalTokens != 22 {
+		t.Fatalf("resp.Usage.TotalTokens = %d, want 22", resp.Usage.TotalTokens)
+	}
+	if resp.Usage.CachedPromptTokens != 3 {
+		t.Fatalf("resp.Usage.CachedPromptTokens = %d, want 3", resp.Usage.CachedPromptTokens)
 	}
 }

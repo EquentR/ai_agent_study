@@ -5,6 +5,7 @@ import (
 	"agent_study/pkg/llm_core/model"
 	mcpClient "agent_study/pkg/mcp/client"
 	mcpModel "agent_study/pkg/mcp/model"
+	"agent_study/pkg/types"
 	"context"
 	"encoding/json"
 	"flag"
@@ -73,7 +74,7 @@ func main() {
 			Messages:   messages,
 			MaxTokens:  1024,
 			Tools:      llmTools,
-			ToolChoice: model.ToolChoice{Type: model.ToolAuto},
+			ToolChoice: types.ToolChoice{Type: types.ToolAuto},
 			TraceID:    fmt.Sprintf("phase2-mcp-agent-round-%d", round),
 			Sampling:   sp,
 		})
@@ -89,7 +90,7 @@ func main() {
 		}
 
 		// Normalize tool calls (add IDs if missing)
-		normalizedCalls := make([]model.ToolCall, 0, len(resp.ToolCalls))
+		normalizedCalls := make([]types.ToolCall, 0, len(resp.ToolCalls))
 		for i, tc := range resp.ToolCalls {
 			if tc.ID == "" {
 				tc.ID = fmt.Sprintf("call_%d_%d", round, i+1)
@@ -145,18 +146,18 @@ func main() {
 	fmt.Printf("\n超过最大工具轮次（%d），未拿到最终答案。\n", *maxRounds)
 }
 
-func convertMCPToolsToLLMTools(mcpTools []mcpModel.MCPTool) []model.Tool {
-	llmTools := make([]model.Tool, 0, len(mcpTools))
+func convertMCPToolsToLLMTools(mcpTools []mcpModel.MCPTool) []types.Tool {
+	llmTools := make([]types.Tool, 0, len(mcpTools))
 
 	for _, mcpTool := range mcpTools {
 		// Extract properties from input_schema
-		properties := make(map[string]model.SchemaProperty)
+		properties := make(map[string]types.SchemaProperty)
 		required := []string{}
 
 		if props, ok := mcpTool.InputSchema["properties"].(map[string]interface{}); ok {
 			for propName, propValue := range props {
 				if propMap, ok := propValue.(map[string]interface{}); ok {
-					prop := model.SchemaProperty{}
+					prop := types.SchemaProperty{}
 					if typeStr, ok := propMap["type"].(string); ok {
 						prop.Type = typeStr
 					}
@@ -176,10 +177,10 @@ func convertMCPToolsToLLMTools(mcpTools []mcpModel.MCPTool) []model.Tool {
 			}
 		}
 
-		llmTool := model.Tool{
+		llmTool := types.Tool{
 			Name:        mcpTool.Name,
 			Description: mcpTool.Description,
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type:       "object",
 				Properties: properties,
 				Required:   required,

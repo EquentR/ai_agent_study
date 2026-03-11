@@ -2,6 +2,7 @@ package openai
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"strings"
 	"testing"
 
@@ -95,7 +96,7 @@ func TestBuildOpenAIMessages_WithToolCalls(t *testing.T) {
 		{
 			Role:    model.RoleAssistant,
 			Content: "",
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []types.ToolCall{{
 				ID:        "call_1",
 				Name:      "lookup_weather",
 				Arguments: `{"city":"Shanghai"}`,

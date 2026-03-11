@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"agent_study/pkg/types"
+	"time"
+)
 
 const (
 	RoleSystem    = "system"
@@ -16,7 +19,7 @@ type Message struct {
 	Attachments []Attachment
 
 	// assistant 发起的 Tool 调用
-	ToolCalls []ToolCall
+	ToolCalls []types.ToolCall
 	// tool 执行结果id
 	ToolCallId string
 }
@@ -35,8 +38,8 @@ type ChatRequest struct {
 	Sampling SamplingParams
 
 	// Tool 相关
-	Tools      []Tool
-	ToolChoice ToolChoice
+	Tools      []types.Tool
+	ToolChoice types.ToolChoice
 
 	TraceID string // 非模型参数，但很关键
 }
@@ -44,16 +47,17 @@ type ChatRequest struct {
 type ChatResponse struct {
 	Content string
 	// ToolCalls carries assistant tool invocation requests in non-stream responses.
-	ToolCalls []ToolCall
+	ToolCalls []types.ToolCall
 
 	Usage   TokenUsage
 	Latency time.Duration
 }
 
 type TokenUsage struct {
-	PromptTokens     int64
-	CompletionTokens int64
-	TotalTokens      int64
+	PromptTokens       int64
+	CachedPromptTokens int64
+	CompletionTokens   int64
+	TotalTokens        int64
 }
 
 type SamplingParams struct {

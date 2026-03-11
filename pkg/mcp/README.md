@@ -4,7 +4,7 @@
 
 - `model`：协议结构与 server 端工具抽象
 - `server`：可复用的 MCP server（支持 STDIO 与 HTTP）
-- `client`：通过 STDIO 调用 MCP server 的客户端
+- `client`：通过 STDIO / HTTP 调用 MCP server 的客户端，并提供统一 `Client` interface
 
 ## 目录结构
 

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type AgentConfig struct {
+type Config struct {
 	MaxSteps       int
 	MaxBudgetUSD   float64
 	ToolTimeout    time.Duration
@@ -15,13 +15,13 @@ type AgentConfig struct {
 
 type Agent struct {
 	LLM    llmModel.LlmClient
-	Tools  *tools.ToolRegitsry
+	Tools  *tools.Registry
 	Memory *MemoryManager
 	Cost   *CostTracker
-	Config AgentConfig
+	Config Config
 }
 
-type AgentState struct {
+type State struct {
 	Task        string
 	Steps       []Step
 	FinalAnswer string

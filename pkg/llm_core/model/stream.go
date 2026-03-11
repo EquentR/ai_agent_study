@@ -1,6 +1,7 @@
 package model
 
 import (
+	"agent_study/pkg/types"
 	"context"
 	"time"
 )
@@ -20,7 +21,7 @@ type Stream interface {
 	Stats() *StreamStats
 
 	// ToolCalls 返回本次回复中的工具调用（仅在 tool call 场景有值）
-	ToolCalls() []ToolCall
+	ToolCalls() []types.ToolCall
 
 	// ResponseType 标识本次回复类型（文本或工具调用）
 	ResponseType() StreamResponseType

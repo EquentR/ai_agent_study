@@ -2,6 +2,7 @@ package openai_official
 
 import (
 	"agent_study/pkg/llm_core/model"
+	"agent_study/pkg/types"
 	"errors"
 	"sort"
 	"strings"
@@ -13,14 +14,14 @@ import (
 
 type streamToolCallAccumulator struct {
 	mu           sync.Mutex
-	byCallID     map[string]model.ToolCall
+	byCallID     map[string]types.ToolCall
 	order        []string
 	itemIDToCall map[string]string
 }
 
 func newStreamToolCallAccumulator() *streamToolCallAccumulator {
 	return &streamToolCallAccumulator{
-		byCallID:     make(map[string]model.ToolCall),
+		byCallID:     make(map[string]types.ToolCall),
 		itemIDToCall: make(map[string]string),
 	}
 }
@@ -70,7 +71,7 @@ func (a *streamToolCallAccumulator) AppendArgumentsDelta(callID, delta string) {
 	current, ok := a.byCallID[callID]
 	if !ok {
 		a.order = append(a.order, callID)
-		current = model.ToolCall{ID: callID}
+		current = types.ToolCall{ID: callID}
 	}
 	current.Arguments += delta
 	a.byCallID[callID] = current
@@ -99,7 +100,7 @@ func (a *streamToolCallAccumulator) SetArgumentsByItemID(itemID, args string) {
 	a.byCallID[callID] = current
 }
 
-func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
+func (a *streamToolCallAccumulator) ToolCalls() []types.ToolCall {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -117,14 +118,14 @@ func (a *streamToolCallAccumulator) ToolCalls() []model.ToolCall {
 		sort.Strings(keys)
 	}
 
-	out := make([]model.ToolCall, 0, len(keys))
+	out := make([]types.ToolCall, 0, len(keys))
 	for _, key := range keys {
 		out = append(out, a.byCallID[key])
 	}
 	return out
 }
 
-func resolveStreamResponseType(finishReason string, toolCalls []model.ToolCall) model.StreamResponseType {
+func resolveStreamResponseType(finishReason string, toolCalls []types.ToolCall) model.StreamResponseType {
 	if strings.EqualFold(finishReason, "tool_calls") || len(toolCalls) > 0 {
 		return model.StreamResponseToolCall
 	}
@@ -182,7 +183,7 @@ func applyStreamEvent(
 	}
 }
 
-func streamFinishReasonFromResponse(resp responses.Response, toolCalls []model.ToolCall) string {
+func streamFinishReasonFromResponse(resp responses.Response, toolCalls []types.ToolCall) string {
 	if len(toolCalls) > 0 {
 		return "tool_calls"
 	}

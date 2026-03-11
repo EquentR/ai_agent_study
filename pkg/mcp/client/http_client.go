@@ -20,6 +20,11 @@ type HTTPMCPClient struct {
 	requestID int
 }
 
+// Close 为统一 client 接口提供空实现。
+func (c *HTTPMCPClient) Close() error {
+	return nil
+}
+
 // NewHTTPMCPClient 创建一个 HTTP MCP 客户端。
 func NewHTTPMCPClient(endpoint string, httpClient *http.Client) (*HTTPMCPClient, error) {
 	if endpoint == "" {

@@ -6,6 +6,7 @@ import (
 	"agent_study/pkg/llm_core/client/openai"
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/rag/fts5"
+	"agent_study/pkg/types"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -92,7 +93,7 @@ func main() {
 			Messages:   messages,
 			MaxTokens:  1024,
 			Tools:      tools,
-			ToolChoice: model.ToolChoice{Type: model.ToolAuto},
+			ToolChoice: types.ToolChoice{Type: types.ToolAuto},
 			TraceID:    "phase3-rag-fts5-tool-call-example",
 			Sampling:   sp,
 		})
@@ -106,7 +107,7 @@ func main() {
 			return
 		}
 
-		normalizedCalls := make([]model.ToolCall, 0, len(resp.ToolCalls))
+		normalizedCalls := make([]types.ToolCall, 0, len(resp.ToolCalls))
 		for i, tc := range resp.ToolCalls {
 			if tc.ID == "" {
 				tc.ID = fmt.Sprintf("mock_call_%d_%d", round, i+1)
@@ -130,14 +131,14 @@ func main() {
 
 }
 
-func buildTools() []model.Tool {
-	return []model.Tool{
+func buildTools() []types.Tool {
+	return []types.Tool{
 		{
 			Name:        "get_weather",
 			Description: "查询城市天气",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"city": {Type: "string", Description: "城市名，例如北京"},
 				},
 				Required: []string{"city"},
@@ -146,9 +147,9 @@ func buildTools() []model.Tool {
 		{
 			Name:        "search_fts5",
 			Description: "全文搜索SQLite数据库中的相关内容",
-			Parameters: model.JSONSchema{
+			Parameters: types.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]types.SchemaProperty{
 					"query": {Type: "string", Description: "搜索查询关键词，支持多个关键词并使用空格分隔，例如：提拉米苏 提拉 米苏"},
 				},
 				Required: []string{"query"},
@@ -157,7 +158,7 @@ func buildTools() []model.Tool {
 	}
 }
 
-func runTool(tc model.ToolCall) string {
+func runTool(tc types.ToolCall) string {
 	handler, ok := toolHandlers[tc.Name]
 	if !ok {
 		return fmt.Sprintf(`{"error":"unknown tool: %s"}`, tc.Name)

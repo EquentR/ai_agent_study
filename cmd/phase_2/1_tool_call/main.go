@@ -3,6 +3,7 @@ package main
 import (
 	"agent_study/pkg/llm_core/client/openai"
 	"agent_study/pkg/llm_core/model"
+	toolsModel "agent_study/pkg/types"
 	"context"
 	"encoding/json"
 	"flag"
@@ -58,7 +59,7 @@ func main() {
 			Messages:   messages,
 			MaxTokens:  1024,
 			Tools:      tools,
-			ToolChoice: model.ToolChoice{Type: model.ToolAuto},
+			ToolChoice: toolsModel.ToolChoice{Type: toolsModel.ToolAuto},
 			TraceID:    "phase2-tool-call-example",
 			Sampling:   sp,
 		})
@@ -72,7 +73,7 @@ func main() {
 			return
 		}
 
-		normalizedCalls := make([]model.ToolCall, 0, len(resp.ToolCalls))
+		normalizedCalls := make([]toolsModel.ToolCall, 0, len(resp.ToolCalls))
 		for i, tc := range resp.ToolCalls {
 			if tc.ID == "" {
 				tc.ID = fmt.Sprintf("mock_call_%d_%d", round, i+1)
@@ -97,14 +98,14 @@ func main() {
 	fmt.Printf("超过最大工具轮次（%d），未拿到最终答案。\n", *maxRounds)
 }
 
-func buildTools() []model.Tool {
-	return []model.Tool{
+func buildTools() []toolsModel.Tool {
+	return []toolsModel.Tool{
 		{
 			Name:        "get_weather",
 			Description: "查询城市天气",
-			Parameters: model.JSONSchema{
+			Parameters: toolsModel.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]toolsModel.SchemaProperty{
 					"city": {Type: "string", Description: "城市名，例如北京"},
 				},
 				Required: []string{"city"},
@@ -113,9 +114,9 @@ func buildTools() []model.Tool {
 		{
 			Name:        "search_local_news",
 			Description: "查询城市本地资讯",
-			Parameters: model.JSONSchema{
+			Parameters: toolsModel.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]toolsModel.SchemaProperty{
 					"city": {Type: "string", Description: "城市名，例如北京"},
 				},
 				Required: []string{"city"},
@@ -124,9 +125,9 @@ func buildTools() []model.Tool {
 		{
 			Name:        "get_exchange_rate",
 			Description: "查询汇率",
-			Parameters: model.JSONSchema{
+			Parameters: toolsModel.JSONSchema{
 				Type: "object",
-				Properties: map[string]model.SchemaProperty{
+				Properties: map[string]toolsModel.SchemaProperty{
 					"base":   {Type: "string", Description: "基础货币，例如USD"},
 					"target": {Type: "string", Description: "目标货币，例如CNY"},
 				},
@@ -136,7 +137,7 @@ func buildTools() []model.Tool {
 	}
 }
 
-func runMockTool(tc model.ToolCall) string {
+func runMockTool(tc toolsModel.ToolCall) string {
 	handler, ok := mockToolHandlers[tc.Name]
 	if !ok {
 		return fmt.Sprintf(`{"error":"unknown tool: %s"}`, tc.Name)
