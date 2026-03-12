@@ -141,25 +141,39 @@ func applyStreamEvent(
 	stats *model.StreamStats,
 	firstTok *sync.Once,
 	start time.Time,
+	splitter *model.LeadingThinkStreamSplitter,
+	reasoning *strings.Builder,
+	observeRaw func(string),
 	emitText func(string),
 	setErr func(error),
 ) {
 	switch event.Type {
 	case "response.output_item.added":
+		if event.Item.Type == "reasoning" {
+			for _, summary := range event.Item.Summary {
+				reasoning.WriteString(summary.Text)
+			}
+		}
 		acc.AddOutputItem(event.Item)
 	case "response.function_call_arguments.delta":
 		acc.AppendArgumentsDeltaByItemID(event.ItemID, event.Delta.OfString)
 	case "response.function_call_arguments.done":
 		acc.SetArgumentsByItemID(event.ItemID, event.Arguments)
+	case "response.reasoning_summary_text.delta", "response.reasoning_summary.delta":
+		observeRaw(event.Delta.OfString)
+		reasoning.WriteString(event.Delta.OfString)
 	case "response.output_text.delta":
 		delta := event.Delta.OfString
 		if delta == "" {
 			return
 		}
+		observeRaw(delta)
 		firstTok.Do(func() {
 			stats.TTFT = time.Since(start)
 		})
-		emitText(delta)
+		if emit := splitter.Consume(delta); emit != "" {
+			emitText(emit)
+		}
 	case "response.completed":
 		stats.Usage = toModelUsage(event.Response.Usage)
 		stats.FinishReason = streamFinishReasonFromResponse(event.Response, acc.ToolCalls())

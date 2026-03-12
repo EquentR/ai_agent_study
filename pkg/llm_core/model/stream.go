@@ -28,6 +28,9 @@ type Stream interface {
 
 	// FinishReason 返回模型返回的结束原因（如 stop/tool_calls/length）
 	FinishReason() string
+
+	// Reasoning 返回本次回复累计的思考/推理文本。
+	Reasoning() string
 }
 
 type StreamResponseType string

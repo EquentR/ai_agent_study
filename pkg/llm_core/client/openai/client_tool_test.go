@@ -98,6 +98,27 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 	}
 }
 
+func TestExtractChatResponse_StripsLeadingThinkBlockIntoReasoning(t *testing.T) {
+	oaiResp := goopenai.ChatCompletionResponse{
+		Choices: []goopenai.ChatCompletionChoice{{
+			Message: goopenai.ChatCompletionMessage{
+				Content: "<think>plan first</think>Final answer",
+			},
+		}},
+	}
+
+	resp, err := extractChatResponse(oaiResp)
+	if err != nil {
+		t.Fatalf("extractChatResponse() error = %v", err)
+	}
+	if resp.Reasoning != "plan first" {
+		t.Fatalf("reasoning = %q, want %q", resp.Reasoning, "plan first")
+	}
+	if resp.Content != "Final answer" {
+		t.Fatalf("content = %q, want %q", resp.Content, "Final answer")
+	}
+}
+
 func TestBuildChatCompletionStreamRequest_WithTools(t *testing.T) {
 	req := model.ChatRequest{
 		Model: "gpt-4o-mini",

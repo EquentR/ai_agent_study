@@ -22,6 +22,7 @@ type openAIStream struct {
 	firstTok          sync.Once
 	asyncTokenCounter *tools.AsyncTokenCounter // 异步token计数器
 	toolCalls         []tools2.ToolCall
+	reasoning         string
 }
 
 func (s *openAIStream) Recv() (string, error) {
@@ -67,6 +68,10 @@ func (s *openAIStream) ResponseType() model.StreamResponseType {
 
 func (s *openAIStream) FinishReason() string {
 	return s.stats.FinishReason
+}
+
+func (s *openAIStream) Reasoning() string {
+	return s.reasoning
 }
 
 type streamToolCallAccumulator struct {

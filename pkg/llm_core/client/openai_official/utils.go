@@ -168,7 +168,13 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 	}
 
 	toolCalls := make([]types.ToolCall, 0)
+	reasoningParts := make([]string, 0)
 	for _, item := range resp.Output {
+		if item.Type == "reasoning" {
+			for _, summary := range item.Summary {
+				reasoningParts = append(reasoningParts, summary.Text)
+			}
+		}
 		if item.Type != "function_call" {
 			continue
 		}
@@ -182,8 +188,14 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 		toolCalls = nil
 	}
 
+	extractedReasoning, answer := model.SplitLeadingThinkBlock(resp.OutputText())
+	reasoning := strings.TrimSpace(strings.Join(reasoningParts, "\n"))
+	if reasoning == "" {
+		reasoning = extractedReasoning
+	}
 	return model.ChatResponse{
-		Content:   resp.OutputText(),
+		Content:   answer,
+		Reasoning: reasoning,
 		ToolCalls: toolCalls,
 		Usage:     toModelUsage(resp.Usage),
 	}, nil

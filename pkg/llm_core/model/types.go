@@ -46,6 +46,8 @@ type ChatRequest struct {
 
 type ChatResponse struct {
 	Content string
+	// Reasoning carries model-provided thinking text when the backend can expose it separately.
+	Reasoning string
 	// ToolCalls carries assistant tool invocation requests in non-stream responses.
 	ToolCalls []types.ToolCall
 

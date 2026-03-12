@@ -18,19 +18,19 @@ type BaseProvider struct {
 	Key     string `yaml:"authKey"`
 }
 
-func (p *BaseProvider) ModelName() string {
+func (p BaseProvider) ModelName() string {
 	return p.Model
 }
 
-func (p *BaseProvider) BaseURL() string {
+func (p BaseProvider) BaseURL() string {
 	return p.BaseUrl
 }
 
-func (p *BaseProvider) Type() string {
+func (p BaseProvider) Type() string {
 	return p.Typ
 }
 
-func (p *BaseProvider) AuthKey() string {
+func (p BaseProvider) AuthKey() string {
 	return p.Key
 }
 

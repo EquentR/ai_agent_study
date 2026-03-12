@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,7 +101,17 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 		defer remote.Close()
 
 		acc := newStreamToolCallAccumulator()
+		splitter := model.NewLeadingThinkStreamSplitter()
+		var reasoningBuilder strings.Builder
 		defer func() {
+			if pending := splitter.Finalize(); pending != "" {
+				ch <- pending
+			}
+			reasoning := strings.TrimSpace(reasoningBuilder.String())
+			if reasoning == "" {
+				reasoning = splitter.Reasoning()
+			}
+			s.setReasoning(reasoning)
 			finalToolCalls := acc.ToolCalls()
 			s.setToolCalls(finalToolCalls)
 
@@ -129,8 +140,10 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 				s.stats,
 				&s.firstTok,
 				s.startTime,
+				splitter,
+				&reasoningBuilder,
+				s.asyncTokenCounter.Append,
 				func(delta string) {
-					s.asyncTokenCounter.Append(delta)
 					ch <- delta
 				},
 				s.setStreamError,
@@ -173,6 +186,8 @@ type responseStream struct {
 	asyncTokenCounter *tools.AsyncTokenCounter
 	toolCallsMu       sync.RWMutex
 	toolCalls         []tools2.ToolCall
+	reasoningMu       sync.RWMutex
+	reasoning         string
 
 	errMu sync.RWMutex
 	err   error
@@ -267,6 +282,12 @@ func (s *responseStream) FinishReason() string {
 	return s.stats.FinishReason
 }
 
+func (s *responseStream) Reasoning() string {
+	s.reasoningMu.RLock()
+	defer s.reasoningMu.RUnlock()
+	return s.reasoning
+}
+
 func (s *responseStream) setToolCalls(calls []tools2.ToolCall) {
 	s.toolCallsMu.Lock()
 	defer s.toolCallsMu.Unlock()
@@ -278,4 +299,10 @@ func (s *responseStream) setToolCalls(calls []tools2.ToolCall) {
 
 	s.toolCalls = make([]tools2.ToolCall, len(calls))
 	copy(s.toolCalls, calls)
+}
+
+func (s *responseStream) setReasoning(reasoning string) {
+	s.reasoningMu.Lock()
+	defer s.reasoningMu.Unlock()
+	s.reasoning = reasoning
 }

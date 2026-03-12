@@ -124,6 +124,7 @@ type genAIStream struct {
 	startTime time.Time
 	firstTok  sync.Once
 	toolCalls []types.ToolCall
+	reasoning string
 
 	errMu sync.RWMutex
 	err   error
@@ -195,3 +196,5 @@ func (s *genAIStream) ToolCalls() []types.ToolCall {
 func (s *genAIStream) ResponseType() model.StreamResponseType { return s.stats.ResponseType }
 
 func (s *genAIStream) FinishReason() string { return s.stats.FinishReason }
+
+func (s *genAIStream) Reasoning() string { return s.reasoning }

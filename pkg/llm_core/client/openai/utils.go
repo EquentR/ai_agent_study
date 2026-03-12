@@ -85,8 +85,11 @@ func extractChatResponse(resp openai.ChatCompletionResponse) (model.ChatResponse
 		})
 	}
 
+	reasoning, answer := model.SplitLeadingThinkBlock(msg.Content)
+
 	return model.ChatResponse{
-		Content:   msg.Content,
+		Content:   answer,
+		Reasoning: reasoning,
 		ToolCalls: toolCalls,
 		Usage: model.TokenUsage{
 			PromptTokens:       int64(resp.Usage.PromptTokens),

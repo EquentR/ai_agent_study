@@ -338,3 +338,31 @@ func TestExtractChatResponse_WithTextToolCallsAndUsage(t *testing.T) {
 		t.Fatalf("cached prompt tokens = %d, want 5", got.Usage.CachedPromptTokens)
 	}
 }
+
+func TestExtractChatResponse_CollectsReasoningAndStripsLeadingThinkBlock(t *testing.T) {
+	resp := &responses.Response{
+		Output: []responses.ResponseOutputItemUnion{
+			{
+				Type: "reasoning",
+				Summary: []responses.ResponseReasoningItemSummary{{
+					Text: "plan first",
+				}},
+			},
+			{
+				Type:    "message",
+				Content: []responses.ResponseOutputMessageContentUnion{{Type: "output_text", Text: "<think>shadow</think>Final answer"}},
+			},
+		},
+	}
+
+	got, err := extractChatResponse(resp)
+	if err != nil {
+		t.Fatalf("extractChatResponse() error = %v", err)
+	}
+	if got.Reasoning != "plan first" {
+		t.Fatalf("reasoning = %q, want %q", got.Reasoning, "plan first")
+	}
+	if got.Content != "Final answer" {
+		t.Fatalf("content = %q, want %q", got.Content, "Final answer")
+	}
+}

@@ -66,6 +66,7 @@ func (c *Client) Chat(ctx context.Context, req model.ChatRequest) (model.ChatRes
 
 	return model.ChatResponse{
 		Content:   contentBuilder.String(),
+		Reasoning: stream.Reasoning(),
 		ToolCalls: stream.ToolCalls(),
 		Usage:     stats.Usage,
 		Latency:   latency,
@@ -114,7 +115,16 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 		defer close(ch)
 
 		toolCallAccumulator := newStreamToolCallAccumulator()
+		splitter := model.NewLeadingThinkStreamSplitter()
+		var reasoningBuilder strings.Builder
 		defer func() {
+			if pending := splitter.Finalize(); pending != "" {
+				ch <- pending
+			}
+			s.reasoning = strings.TrimSpace(reasoningBuilder.String())
+			if s.reasoning == "" {
+				s.reasoning = splitter.Reasoning()
+			}
 			s.toolCalls = toolCallAccumulator.ToolCalls()
 			s.stats.ResponseType = resolveStreamResponseType(s.stats.FinishReason, s.toolCalls)
 		}()
@@ -152,6 +162,11 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 					if part == nil {
 						continue
 					}
+					if part.Text != "" && part.Thought {
+						asyncCounter.Append(part.Text)
+						reasoningBuilder.WriteString(part.Text)
+						continue
+					}
 					// GenAI 的函数调用通过结构化 part 返回。
 					// 这里先累积，最终通过 Stream.ToolCalls() 暴露。
 					if part.FunctionCall != nil {
@@ -163,7 +178,9 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 							s.stats.TTFT = time.Since(s.startTime)
 						})
 						asyncCounter.Append(part.Text)
-						ch <- part.Text
+						if emit := splitter.Consume(part.Text); emit != "" {
+							ch <- emit
+						}
 					}
 				}
 			}

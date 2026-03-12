@@ -109,7 +109,7 @@ func TestBuildGenAIMessages_WithAssistantToolCallsAndToolResponse(t *testing.T) 
 }
 
 func TestExtractContentAndToolCalls_PreservesThoughtSignature(t *testing.T) {
-	_, toolCalls, err := extractContentAndToolCalls(&genai.Content{
+	_, _, toolCalls, err := extractContentAndToolCalls(&genai.Content{
 		Role: genai.RoleModel,
 		Parts: []*genai.Part{{
 			FunctionCall:     &genai.FunctionCall{ID: "call_1", Name: "lookup_weather", Args: map[string]any{"city": "Beijing"}},
@@ -171,5 +171,48 @@ func TestExtractChatResponse_WithToolCalls(t *testing.T) {
 	}
 	if resp.Usage.CachedPromptTokens != 3 {
 		t.Fatalf("resp.Usage.CachedPromptTokens = %d, want 3", resp.Usage.CachedPromptTokens)
+	}
+}
+
+func TestExtractChatResponse_CollectsThoughtPartsAsReasoning(t *testing.T) {
+	resp, err := extractChatResponse(&genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{{
+			Content: &genai.Content{
+				Role: genai.RoleModel,
+				Parts: []*genai.Part{
+					{Text: "plan first", Thought: true},
+					{Text: "Final answer"},
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("extractChatResponse() error = %v", err)
+	}
+	if resp.Reasoning != "plan first" {
+		t.Fatalf("reasoning = %q, want %q", resp.Reasoning, "plan first")
+	}
+	if resp.Content != "Final answer" {
+		t.Fatalf("content = %q, want %q", resp.Content, "Final answer")
+	}
+}
+
+func TestExtractChatResponse_StripsLeadingThinkBlockWhenThoughtMissing(t *testing.T) {
+	resp, err := extractChatResponse(&genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{{
+			Content: &genai.Content{
+				Role:  genai.RoleModel,
+				Parts: []*genai.Part{{Text: "<think>plan first</think>Final answer"}},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("extractChatResponse() error = %v", err)
+	}
+	if resp.Reasoning != "plan first" {
+		t.Fatalf("reasoning = %q, want %q", resp.Reasoning, "plan first")
+	}
+	if resp.Content != "Final answer" {
+		t.Fatalf("content = %q, want %q", resp.Content, "Final answer")
 	}
 }

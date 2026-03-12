@@ -52,6 +52,7 @@ func (c *Client) Chat(ctx context.Context, req model.ChatRequest) (model.ChatRes
 
 	return model.ChatResponse{
 		Content:   contentBuilder.String(),
+		Reasoning: stream.Reasoning(),
 		ToolCalls: stream.ToolCalls(),
 		Usage:     stats.Usage,
 		Latency:   latency,
@@ -99,7 +100,12 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 		defer resp.Close()
 
 		toolCallAccumulator := newStreamToolCallAccumulator()
+		splitter := model.NewLeadingThinkStreamSplitter()
 		defer func() {
+			if pending := splitter.Finalize(); pending != "" {
+				ch <- pending
+			}
+			s.reasoning = splitter.Reasoning()
 			s.toolCalls = toolCallAccumulator.ToolCalls()
 			s.stats.ResponseType = resolveStreamResponseType(s.stats.FinishReason, s.toolCalls)
 		}()
@@ -154,7 +160,9 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 						if s.asyncTokenCounter != nil {
 							s.asyncTokenCounter.Append(delta)
 						}
-						ch <- delta
+						if emit := splitter.Consume(delta); emit != "" {
+							ch <- emit
+						}
 					}
 				}
 

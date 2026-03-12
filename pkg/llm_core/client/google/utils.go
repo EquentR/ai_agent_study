@@ -351,7 +351,7 @@ func extractChatResponse(resp *genai.GenerateContentResponse) (model.ChatRespons
 	}
 
 	// 与 OpenAI 适配层一致：仅使用第一个 candidate 作为最终回复。
-	content, toolCalls, err := extractContentAndToolCalls(first.Content)
+	content, reasoning, toolCalls, err := extractContentAndToolCalls(first.Content)
 	if err != nil {
 		return model.ChatResponse{}, err
 	}
@@ -360,17 +360,19 @@ func extractChatResponse(resp *genai.GenerateContentResponse) (model.ChatRespons
 
 	return model.ChatResponse{
 		Content:   content,
+		Reasoning: reasoning,
 		ToolCalls: toolCalls,
 		Usage:     usage,
 	}, nil
 }
 
-func extractContentAndToolCalls(content *genai.Content) (string, []types.ToolCall, error) {
+func extractContentAndToolCalls(content *genai.Content) (string, string, []types.ToolCall, error) {
 	if content == nil {
-		return "", nil, nil
+		return "", "", nil, nil
 	}
 
 	var textBuilder strings.Builder
+	var reasoningBuilder strings.Builder
 	toolCalls := make([]types.ToolCall, 0)
 
 	for _, part := range content.Parts {
@@ -378,13 +380,17 @@ func extractContentAndToolCalls(content *genai.Content) (string, []types.ToolCal
 			continue
 		}
 		if part.Text != "" {
-			textBuilder.WriteString(part.Text)
+			if part.Thought {
+				reasoningBuilder.WriteString(part.Text)
+			} else {
+				textBuilder.WriteString(part.Text)
+			}
 		}
 		if part.FunctionCall != nil {
 			// 参数持久化为 JSON 字符串，保持 model.ToolCall 结构契约不变。
 			args, err := json.Marshal(part.FunctionCall.Args)
 			if err != nil {
-				return "", nil, err
+				return "", "", nil, err
 			}
 			toolCalls = append(toolCalls, types.ToolCall{
 				ID:               part.FunctionCall.ID,
@@ -399,7 +405,12 @@ func extractContentAndToolCalls(content *genai.Content) (string, []types.ToolCal
 		toolCalls = nil
 	}
 
-	return textBuilder.String(), toolCalls, nil
+	extractedReasoning, answer := model.SplitLeadingThinkBlock(textBuilder.String())
+	reasoning := strings.TrimSpace(reasoningBuilder.String())
+	if reasoning == "" {
+		reasoning = extractedReasoning
+	}
+	return answer, reasoning, toolCalls, nil
 }
 
 func toModelUsage(usage *genai.GenerateContentResponseUsageMetadata) model.TokenUsage {

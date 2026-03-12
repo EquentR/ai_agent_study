@@ -1,0 +1,33 @@
+sqlite:
+  name: phase3vector
+  autoCreate: true
+  inMemory: false
+  dbDir: data/phase3vector/
+  logLevel: info
+  params:
+    - _pragma=journal_mode(WAL)
+    - _pragma=busy_timeout(30000)
+    - _txlock=exclusive
+
+log:
+  level: info
+  file: logs/phase4.log
+  rotation: true
+  maxSize: 100
+  maxAge: 30
+  maxBackups: 7
+  compress: true
+
+llmProvider:
+  model: "gpt-5.4"
+  type: openai_responses
+  baseUrl: "${OPENAI_BASE_URL}"
+  apiKey: "${OPENAI_API_KEY}" # 可以通过环境变量或其他安全方式提供
+  cost:
+    input: 0.625 # USD / 1M input tokens
+    cachedInput: 0.02 # USD / 1M cached input tokens
+    output: 3.75 # USD / 1M output tokens
+  context:
+    max: 128000
+    input: 120000
+    output: 8000

@@ -3,6 +3,7 @@ package openai_official
 import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/types"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -66,6 +67,8 @@ func TestApplyStreamEvent_DeltaToolAndCompletion(t *testing.T) {
 	stats := &model.StreamStats{ResponseType: model.StreamResponseUnknown}
 	acc := newStreamToolCallAccumulator()
 	var chunks []string
+	splitter := model.NewLeadingThinkStreamSplitter()
+	var reasoning strings.Builder
 	var once sync.Once
 	start := time.Now().Add(-5 * time.Millisecond)
 
@@ -74,14 +77,18 @@ func TestApplyStreamEvent_DeltaToolAndCompletion(t *testing.T) {
 	}
 	setErr := func(error) {}
 
-	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.output_item.added", Item: responses.ResponseOutputItemUnion{Type: "function_call", ID: "item_1", CallID: "call_1", Name: "lookup_weather"}}, acc, stats, &once, start, emit, setErr)
-	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.function_call_arguments.delta", ItemID: "item_1", Delta: responses.ResponseStreamEventUnionDelta{OfString: "{\"city\":"}}, acc, stats, &once, start, emit, setErr)
-	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.function_call_arguments.delta", ItemID: "item_1", Delta: responses.ResponseStreamEventUnionDelta{OfString: "\"Beijing\"}"}}, acc, stats, &once, start, emit, setErr)
-	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.output_text.delta", Delta: responses.ResponseStreamEventUnionDelta{OfString: "hello"}}, acc, stats, &once, start, emit, setErr)
-	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.completed", Response: responses.Response{Status: "completed", Usage: responses.ResponseUsage{InputTokens: 3, OutputTokens: 4, TotalTokens: 7}}}, acc, stats, &once, start, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.output_item.added", Item: responses.ResponseOutputItemUnion{Type: "function_call", ID: "item_1", CallID: "call_1", Name: "lookup_weather"}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.function_call_arguments.delta", ItemID: "item_1", Delta: responses.ResponseStreamEventUnionDelta{OfString: "{\"city\":"}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.function_call_arguments.delta", ItemID: "item_1", Delta: responses.ResponseStreamEventUnionDelta{OfString: "\"Beijing\"}"}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.reasoning_summary_text.delta", Delta: responses.ResponseStreamEventUnionDelta{OfString: "plan first"}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.output_text.delta", Delta: responses.ResponseStreamEventUnionDelta{OfString: "<think>shadow</think>hello"}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
+	applyStreamEvent(responses.ResponseStreamEventUnion{Type: "response.completed", Response: responses.Response{Status: "completed", Usage: responses.ResponseUsage{InputTokens: 3, OutputTokens: 4, TotalTokens: 7}}}, acc, stats, &once, start, splitter, &reasoning, func(string) {}, emit, setErr)
 
 	if len(chunks) != 1 || chunks[0] != "hello" {
 		t.Fatalf("chunks = %#v, want [hello]", chunks)
+	}
+	if reasoning.String() != "plan first" {
+		t.Fatalf("reasoning = %q, want %q", reasoning.String(), "plan first")
 	}
 	if stats.TTFT <= 0 {
 		t.Fatalf("stats.TTFT = %v, want > 0", stats.TTFT)
@@ -114,6 +121,9 @@ func TestApplyStreamEvent_FailedWithoutMessageSetsGenericError(t *testing.T) {
 		stats,
 		&once,
 		start,
+		model.NewLeadingThinkStreamSplitter(),
+		&strings.Builder{},
+		func(string) {},
 		func(string) {},
 		func(err error) { gotErr = err },
 	)
@@ -136,6 +146,9 @@ func TestApplyStreamEvent_ErrorWithoutMessageSetsGenericError(t *testing.T) {
 		stats,
 		&once,
 		start,
+		model.NewLeadingThinkStreamSplitter(),
+		&strings.Builder{},
+		func(string) {},
 		func(string) {},
 		func(err error) { gotErr = err },
 	)
