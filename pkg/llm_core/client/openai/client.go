@@ -101,11 +101,18 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 
 		toolCallAccumulator := newStreamToolCallAccumulator()
 		splitter := model.NewLeadingThinkStreamSplitter()
+		// 新版兼容接口可能把 reasoning content 与正文分开下发，
+		// 这里单独累积，避免只依赖 <think> 切分导致信息丢失。
+		var reasoningBuilder strings.Builder
 		defer func() {
 			if pending := splitter.Finalize(); pending != "" {
 				ch <- pending
 			}
-			s.reasoning = splitter.Reasoning()
+			reasoning := strings.TrimSpace(reasoningBuilder.String())
+			if reasoning == "" {
+				reasoning = splitter.Reasoning()
+			}
+			s.reasoning = reasoning
 			s.toolCalls = toolCallAccumulator.ToolCalls()
 			s.stats.ResponseType = resolveStreamResponseType(s.stats.FinishReason, s.toolCalls)
 		}()
@@ -146,6 +153,17 @@ func (c *Client) ChatStream(ctx context.Context, req model.ChatRequest) (model.S
 					choice := chunk.Choices[0]
 					if choice.FinishReason != "" && choice.FinishReason != openai.FinishReasonNull {
 						s.stats.FinishReason = string(choice.FinishReason)
+					}
+
+					reasoningDelta := choice.Delta.ReasoningContent
+					if reasoningDelta != "" {
+						s.firstTok.Do(func() {
+							s.stats.TTFT = time.Since(s.startTime)
+						})
+						if s.asyncTokenCounter != nil {
+							s.asyncTokenCounter.Append(reasoningDelta)
+						}
+						reasoningBuilder.WriteString(reasoningDelta)
 					}
 
 					if len(choice.Delta.ToolCalls) > 0 {

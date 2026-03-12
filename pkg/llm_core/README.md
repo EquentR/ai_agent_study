@@ -1,32 +1,54 @@
 # LLM Core
-提供辅助工具，包括 token 计数器（支持本地快速计数和精确 tiktoken 计数）。
 
-## 附件能力
+`pkg/llm_core` 提供统一的 LLM 抽象层，负责描述消息模型、适配不同 provider，并补齐流式输出、工具调用、附件和 token 统计等横切能力。
 
-`model.Message` 新增可选字段 `Attachments`，支持将图片和文本文件作为附件发送给 LLM。
+## 核心能力
 
-- 图片附件：会按 OpenAI 兼容格式转换为 `image_url`（data URL）
-- 文本附件：会作为文本片段追加到消息内容中
+### 附件能力
 
-不传附件时，原有文本消息调用方式保持不变。
+`model.Message.Attachments` 支持把图片和文本文件一并发送给模型。
 
-## Tool Call（Chat / ChatStream）
+- 图片附件会被转换为兼容 provider 的图片消息格式
+- 文本附件会作为额外文本片段拼到消息中
+- 不传附件时，原有文本消息链路保持不变
 
-- `ChatRequest.Tools` / `ChatRequest.ToolChoice` 会透传到 OpenAI Chat Completions
-- `ChatRequest.Messages` 中的 `assistant.ToolCalls` 与 `tool.ToolCallId` 会按 OpenAI 字段映射
-- `ChatResponse.ToolCalls` 返回模型产生的工具调用（函数名、参数、调用 ID）
-- `ChatStream` 也支持 tool call 聚合；流结束后可通过 `Stream.ToolCalls()` 读取
-- `ChatStream` 可通过 `Stream.ResponseType()` 与 `Stream.FinishReason()` 判断回复类型和结束原因
+### Tool Call
 
-### tools
+- `ChatRequest.Tools` / `ChatRequest.ToolChoice` 统一描述工具声明与调用策略
+- `assistant.ToolCalls` 与 `tool.ToolCallId` 支持在多轮对话中回放工具调用链路
+- `ChatResponse.ToolCalls` 和 `Stream.ToolCalls()` 都能返回模型发起的函数调用
+- `Stream.ResponseType()` / `Stream.FinishReason()` 可用于区分文本回复、工具调用和结束原因
 
-定义 LLM 交互所需的数据结构、接口和类型。
-### model
+### Reasoning Replay
 
-提供不同 LLM 服务商的客户端实现（目前支持 OpenAI 兼容接口）。
-### client
+为兼容支持推理状态回放的模型，`model.Message` / `model.ChatResponse` 额外提供：
+
+- `Reasoning`：单独暴露的思考文本
+- `ReasoningItems`：结构化推理片段，适合按 provider 要求原样回放
+
+目前 `openai_official`（Responses API）已经支持 reasoning item 的提取与回放，`openai` 兼容层也会在流式场景单独聚合 `ReasoningContent`。
 
 ## 子包说明
 
-LLM 核心功能库，提供与大语言模型交互的基础能力。
+### `model`
+
+定义统一的数据结构和接口，包括 `Message`、`ChatRequest`、`ChatResponse`、`Stream` 等。
+
+### `client`
+
+提供不同 provider 的客户端实现，目前包含：
+
+- `openai`：基于 Chat Completions 兼容接口
+- `openai_official`：基于 OpenAI 官方 Responses API
+- `google`：Gemini / GenAI 兼容适配
+
+### `tools`
+
+提供本地 token 计数器与流式计数封装，供各个客户端复用。
+
+## 相关文档
+
+- `pkg/llm_core/client/README.md`
+- `pkg/llm_core/model/README.md`
+- `pkg/llm_core/tools/README.md`
 

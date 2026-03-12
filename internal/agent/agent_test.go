@@ -193,7 +193,7 @@ func TestPlanUsesAgentModelAsRequestDefault(t *testing.T) {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
 
-	_, _, err = agent.Plan(context.Background(), &State{Task: "hello"})
+	_, _, _, err = agent.Plan(context.Background(), &State{Task: "hello"})
 	if err != nil {
 		t.Fatalf("Plan() error = %v", err)
 	}

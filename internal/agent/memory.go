@@ -267,6 +267,17 @@ func cloneMessage(message llmModel.Message) llmModel.Message {
 		}
 	}
 
+	if len(message.ReasoningItems) > 0 {
+		cloned.ReasoningItems = make([]llmModel.ReasoningItem, 0, len(message.ReasoningItems))
+		for _, item := range message.ReasoningItems {
+			clonedItem := item
+			if len(item.Summary) > 0 {
+				clonedItem.Summary = append([]llmModel.ReasoningSummary(nil), item.Summary...)
+			}
+			cloned.ReasoningItems = append(cloned.ReasoningItems, clonedItem)
+		}
+	}
+
 	if len(message.ToolCalls) > 0 {
 		// ToolCall 内部还带有字节切片字段（如 ThoughtSignature），如果只做浅拷贝，
 		// 仍然会和原始消息共享底层内存。

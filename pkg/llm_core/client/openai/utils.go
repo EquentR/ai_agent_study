@@ -86,6 +86,9 @@ func extractChatResponse(resp openai.ChatCompletionResponse) (model.ChatResponse
 	}
 
 	reasoning, answer := model.SplitLeadingThinkBlock(msg.Content)
+	if msg.ReasoningContent != "" {
+		reasoning = msg.ReasoningContent
+	}
 
 	return model.ChatResponse{
 		Content:   answer,

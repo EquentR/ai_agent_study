@@ -38,9 +38,11 @@ type State struct {
 }
 
 type Step struct {
-	Thought     string
-	Action      Action
-	Observation string
+	Thought string
+	// ReasoningItems 记录模型返回的结构化推理片段，主要用于调试展示和上下文回放。
+	ReasoningItems []llmModel.ReasoningItem
+	Action         Action
+	Observation    string
 }
 
 type StepEvent struct {

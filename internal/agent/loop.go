@@ -30,12 +30,12 @@ func (a *Agent) Run(ctx context.Context, task string) (*State, error) {
 	}
 
 	for range maxSteps {
-		action, thought, err := a.Plan(ctx, state)
+		action, thought, reasoningItems, err := a.Plan(ctx, state)
 		if err != nil {
 			return nil, err
 		}
 
-		trace := Step{Thought: thought, Action: *action}
+		trace := Step{Thought: thought, ReasoningItems: reasoningItems, Action: *action}
 		switch action.Kind {
 		case ActionKindToolCalls:
 			if len(action.ToolCalls) == 0 {
@@ -44,15 +44,19 @@ func (a *Agent) Run(ctx context.Context, task string) (*State, error) {
 			normalizedCalls := normalizeToolCalls(action.ToolCalls, state.StepIndex+1)
 			action.ToolCalls = normalizedCalls
 			trace.Action = *action
-			a.Memory.AddMessage(llmModel.Message{Role: llmModel.RoleAssistant, ToolCalls: normalizedCalls})
+			// 工具调用前先把 assistant 的 reasoning/reasoning items 写回短期记忆，
+			// 这样下一轮规划时 provider 可以按要求回放完整推理上下文。
+			a.Memory.AddMessage(llmModel.Message{Role: llmModel.RoleAssistant, Reasoning: thought, ReasoningItems: reasoningItems, ToolCalls: normalizedCalls})
 			observation, err := a.executeToolCalls(ctx, normalizedCalls)
 			if err != nil {
-				return nil, err
+				trace.Observation = err.Error()
+			} else {
+				trace.Observation = observation
 			}
-			trace.Observation = observation
 		case ActionKindFinish:
 			state.FinalAnswer = action.Answer
-			a.Memory.AddMessage(llmModel.Message{Role: llmModel.RoleAssistant, Content: action.Answer})
+			// 最终回答同样保留 reasoning 元信息，便于测试、追踪和后续兼容更多 provider。
+			a.Memory.AddMessage(llmModel.Message{Role: llmModel.RoleAssistant, Content: action.Answer, Reasoning: thought, ReasoningItems: reasoningItems})
 			state.Steps = append(state.Steps, trace)
 			state.StepIndex = len(state.Steps)
 			a.emitStep(StepEvent{Index: state.StepIndex, Step: trace})

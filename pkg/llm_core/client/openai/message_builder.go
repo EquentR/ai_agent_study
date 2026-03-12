@@ -21,10 +21,11 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 
 		if len(m.Attachments) == 0 {
 			msgs = append(msgs, openai.ChatCompletionMessage{
-				Role:       m.Role,
-				Content:    m.Content,
-				ToolCalls:  toolCalls,
-				ToolCallID: m.ToolCallId,
+				Role:             m.Role,
+				Content:          m.Content,
+				ReasoningContent: m.Reasoning,
+				ToolCalls:        toolCalls,
+				ToolCallID:       m.ToolCallId,
 			})
 			promptMessages = append(promptMessages, m.Content)
 			continue
@@ -52,9 +53,10 @@ func buildOpenAIMessages(messages []model.Message) ([]openai.ChatCompletionMessa
 		}
 
 		msg := openai.ChatCompletionMessage{
-			Role:       m.Role,
-			ToolCalls:  toolCalls,
-			ToolCallID: m.ToolCallId,
+			Role:             m.Role,
+			ReasoningContent: m.Reasoning,
+			ToolCalls:        toolCalls,
+			ToolCallID:       m.ToolCallId,
 		}
 		if len(parts) > 0 {
 			msg.MultiContent = parts

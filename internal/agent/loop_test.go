@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -97,13 +98,22 @@ func TestRunExecutesToolCallsAndFinishes(t *testing.T) {
 		t.Fatalf("assistant tool-call message = %#v, want one tool call", messages[1])
 	}
 	if messages[1].Content != "" {
-		t.Fatalf("assistant tool-call content = %q, want empty because thought stays out of memory", messages[1].Content)
+		t.Fatalf("assistant tool-call content = %q, want empty", messages[1].Content)
+	}
+	if got := messageReasoning(messages[1]); got != "Need the weather tool." {
+		t.Fatalf("assistant tool-call reasoning = %q, want %q", got, "Need the weather tool.")
+	}
+	if len(messages[1].ReasoningItems) != 0 {
+		t.Fatalf("assistant tool-call reasoning items = %#v, want none in this scenario", messages[1].ReasoningItems)
 	}
 	if messages[2].Role != llmModel.RoleTool || messages[2].ToolCallId != "call_1" {
 		t.Fatalf("tool message = %#v, want tool result bound to call_1", messages[2])
 	}
 	if messages[3].Role != llmModel.RoleAssistant || messages[3].Content != "Shanghai is sunny." {
 		t.Fatalf("assistant final message = %#v, want final answer", messages[3])
+	}
+	if got := messageReasoning(messages[3]); got != "I have enough information now." {
+		t.Fatalf("assistant final reasoning = %q, want %q", got, "I have enough information now.")
 	}
 
 	if len(llm.requests) != 2 {
@@ -115,8 +125,71 @@ func TestRunExecutesToolCallsAndFinishes(t *testing.T) {
 	if len(llm.requests[1].Messages) != 4 {
 		t.Fatalf("second request messages = %d, want 4", len(llm.requests[1].Messages))
 	}
+	if got := messageReasoning(llm.requests[1].Messages[2]); got != "Need the weather tool." {
+		t.Fatalf("second request assistant reasoning = %q, want %q", got, "Need the weather tool.")
+	}
 	if len(llm.requests[0].Tools) != 1 {
 		t.Fatalf("first request tools = %d, want 1", len(llm.requests[0].Tools))
+	}
+}
+
+func TestRunPersistsAssistantReasoningItemsForToolCalls(t *testing.T) {
+	memory, err := NewMemoryManager(MemoryOptions{})
+	if err != nil {
+		t.Fatalf("NewMemoryManager() error = %v", err)
+	}
+
+	registry := tools.NewRegistry()
+	if err := registry.Register(tools.Tool{
+		Name:        "lookup_weather",
+		Description: "lookup weather by city",
+		Parameters:  toolTypes.JSONSchema{Type: "object"},
+		Handler: func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+			return `{"ok":true}`, nil
+		},
+	}); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	llm := &fakeLlmClient{
+		responses: []llmModel.ChatResponse{
+			{
+				Reasoning: "Need the weather tool.",
+				ReasoningItems: []llmModel.ReasoningItem{{
+					ID: "rs_1",
+					Summary: []llmModel.ReasoningSummary{{
+						Text: "Need the weather tool.",
+					}},
+					EncryptedContent: "enc_123",
+				}},
+				ToolCalls: []toolTypes.ToolCall{{
+					ID:        "call_1",
+					Name:      "lookup_weather",
+					Arguments: `{}`,
+				}},
+			},
+			{Content: "done"},
+		},
+	}
+
+	agent := &Agent{LLM: llm, Tools: registry, Memory: memory, Config: Config{MaxSteps: 3}}
+	_, err = agent.Run(context.Background(), "check weather")
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	messages := memory.ShortTermMessages()
+	if len(messages[1].ReasoningItems) != 1 {
+		t.Fatalf("assistant reasoning items = %#v, want one reasoning item", messages[1].ReasoningItems)
+	}
+	if messages[1].ReasoningItems[0].ID != "rs_1" {
+		t.Fatalf("assistant reasoning item id = %q, want rs_1", messages[1].ReasoningItems[0].ID)
+	}
+	if len(llm.requests) < 2 || len(llm.requests[1].Messages) < 3 {
+		t.Fatalf("requests = %#v, want second round with replayed assistant message", llm.requests)
+	}
+	if len(llm.requests[1].Messages[1].ReasoningItems) != 1 {
+		t.Fatalf("replayed reasoning items = %#v, want one reasoning item", llm.requests[1].Messages[1].ReasoningItems)
 	}
 }
 
@@ -374,4 +447,12 @@ func decodeArgs(t *testing.T, raw string) map[string]interface{} {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return out
+}
+
+func messageReasoning(message llmModel.Message) string {
+	field := reflect.ValueOf(message).FieldByName("Reasoning")
+	if !field.IsValid() || field.Kind() != reflect.String {
+		return ""
+	}
+	return field.String()
 }

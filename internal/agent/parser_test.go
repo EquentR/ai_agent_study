@@ -86,3 +86,28 @@ func TestParseActionFallsBackToThinkBlockWhenReasoningMissing(t *testing.T) {
 		t.Fatalf("answer = %q, want final answer without think block", action.Answer)
 	}
 }
+
+func TestParseActionFallsBackToReasoningItemSummaryWhenReasoningMissing(t *testing.T) {
+	resp := llmModel.ChatResponse{
+		ReasoningItems: []llmModel.ReasoningItem{{
+			ID: "rs_1",
+			Summary: []llmModel.ReasoningSummary{{
+				Text: "Need to verify the weather first.",
+			}},
+		}},
+		ToolCalls: []toolTypes.ToolCall{{
+			ID:        "call_1",
+			Name:      "lookup_weather",
+			Arguments: `{"city":"Shanghai"}`,
+		}},
+	}
+
+	action, thought := ParseAction(resp)
+
+	if action.Kind != ActionKindToolCalls {
+		t.Fatalf("kind = %q, want %q", action.Kind, ActionKindToolCalls)
+	}
+	if thought != "Need to verify the weather first." {
+		t.Fatalf("thought = %q, want reasoning item summary fallback", thought)
+	}
+}

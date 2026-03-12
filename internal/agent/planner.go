@@ -9,9 +9,11 @@ import (
 	"fmt"
 )
 
-func (a *Agent) Plan(ctx context.Context, state *State) (*Action, string, error) {
+// Plan 除了返回动作和文本 thought，还会把 provider 返回的结构化 reasoning items
+// 一并交给上层，供记忆回放和 CLI 展示使用。
+func (a *Agent) Plan(ctx context.Context, state *State) (*Action, string, []llmModel.ReasoningItem, error) {
 	if a == nil || a.LLM == nil {
-		return nil, "", fmt.Errorf("agent llm is not configured")
+		return nil, "", nil, fmt.Errorf("agent llm is not configured")
 	}
 
 	request := llmModel.ChatRequest{
@@ -29,16 +31,16 @@ func (a *Agent) Plan(ctx context.Context, state *State) (*Action, string, error)
 
 	response, err := a.LLM.Chat(ctx, request)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	if a.Cost != nil {
 		if _, err := a.Cost.AddUsage(response.Usage); err != nil {
-			return nil, "", err
+			return nil, "", nil, err
 		}
 	}
 	_ = state
 	action, think := ParseAction(response)
-	return &action, think, nil
+	return &action, think, response.ReasoningItems, nil
 }
 
 const LtMemoryTmpl = `以下是该用户的长期记忆，若与本次任务无关，请勿参考此块内容

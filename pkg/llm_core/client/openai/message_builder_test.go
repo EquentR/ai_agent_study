@@ -3,6 +3,7 @@ package openai
 import (
 	"agent_study/pkg/llm_core/model"
 	"agent_study/pkg/types"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -136,4 +137,33 @@ func TestBuildOpenAIMessages_WithToolCalls(t *testing.T) {
 	if len(promptMessages) != 2 {
 		t.Fatalf("len(promptMessages) = %d, want 2", len(promptMessages))
 	}
+}
+
+func TestBuildOpenAIMessages_PreservesAssistantReasoningContent(t *testing.T) {
+	msgs, _, err := buildOpenAIMessages([]model.Message{withMessageReasoning(model.Message{
+		Role: model.RoleAssistant,
+		ToolCalls: []types.ToolCall{{
+			ID:        "call_1",
+			Name:      "lookup_weather",
+			Arguments: `{"city":"Shanghai"}`,
+		}},
+	}, "Need the weather tool.")})
+	if err != nil {
+		t.Fatalf("buildOpenAIMessages() error = %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("len(msgs) = %d, want 1", len(msgs))
+	}
+	if msgs[0].ReasoningContent != "Need the weather tool." {
+		t.Fatalf("msgs[0].ReasoningContent = %q, want %q", msgs[0].ReasoningContent, "Need the weather tool.")
+	}
+}
+
+func withMessageReasoning(message model.Message, reasoning string) model.Message {
+	field := reflect.ValueOf(&message).Elem().FieldByName("Reasoning")
+	if !field.IsValid() || !field.CanSet() || field.Kind() != reflect.String {
+		return message
+	}
+	field.SetString(reasoning)
+	return message
 }

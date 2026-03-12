@@ -9,6 +9,7 @@ import (
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/responses"
+	"github.com/openai/openai-go/shared"
 )
 
 func buildResponseRequestParams(req model.ChatRequest) (responses.ResponseNewParams, error) {
@@ -21,6 +22,11 @@ func buildResponseRequestParams(req model.ChatRequest) (responses.ResponseNewPar
 		Model: req.Model,
 		Input: responses.ResponseNewParamsInputUnion{OfInputItemList: input},
 		Tools: modelToolsToResponse(req.Tools),
+		// 开启 reasoning summary，便于上层拿到可展示、可回放的推理摘要。
+		Reasoning: shared.ReasoningParam{
+			Effort:  shared.ReasoningEffortMedium,
+			Summary: shared.ReasoningSummaryAuto,
+		},
 	}
 
 	if req.MaxTokens > 0 {
@@ -52,6 +58,11 @@ func buildResponseInput(messages []model.Message) (responses.ResponseInputParam,
 		case model.RoleSystem, model.RoleUser:
 			input = append(input, responses.ResponseInputItemParamOfMessage(m.Content, toResponseRole(m.Role)))
 		case model.RoleAssistant:
+			// Responses API 要求 assistant 之前产生的 reasoning item 单独回放，
+			// 否则下一轮 tool call 之后可能丢失推理上下文。
+			for _, item := range m.ReasoningItems {
+				input = append(input, modelReasoningItemToResponse(item))
+			}
 			if strings.TrimSpace(m.Content) != "" || len(m.ToolCalls) == 0 {
 				input = append(input, responses.ResponseInputItemParamOfMessage(m.Content, toResponseRole(m.Role)))
 			}
@@ -169,8 +180,11 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 
 	toolCalls := make([]types.ToolCall, 0)
 	reasoningParts := make([]string, 0)
+	reasoningItems := make([]model.ReasoningItem, 0)
 	for _, item := range resp.Output {
 		if item.Type == "reasoning" {
+			// 同时保留摘要文本与结构化 item：前者方便展示，后者用于后续原样回放。
+			reasoningItems = append(reasoningItems, responseReasoningItemToModel(item))
 			for _, summary := range item.Summary {
 				reasoningParts = append(reasoningParts, summary.Text)
 			}
@@ -187,6 +201,9 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 	if len(toolCalls) == 0 {
 		toolCalls = nil
 	}
+	if len(reasoningItems) == 0 {
+		reasoningItems = nil
+	}
 
 	extractedReasoning, answer := model.SplitLeadingThinkBlock(resp.OutputText())
 	reasoning := strings.TrimSpace(strings.Join(reasoningParts, "\n"))
@@ -194,11 +211,38 @@ func extractChatResponse(resp *responses.Response) (model.ChatResponse, error) {
 		reasoning = extractedReasoning
 	}
 	return model.ChatResponse{
-		Content:   answer,
-		Reasoning: reasoning,
-		ToolCalls: toolCalls,
-		Usage:     toModelUsage(resp.Usage),
+		Content:        answer,
+		Reasoning:      reasoning,
+		ReasoningItems: reasoningItems,
+		ToolCalls:      toolCalls,
+		Usage:          toModelUsage(resp.Usage),
 	}, nil
+}
+
+func modelReasoningItemToResponse(item model.ReasoningItem) responses.ResponseInputItemUnionParam {
+	summary := make([]responses.ResponseReasoningItemSummaryParam, 0, len(item.Summary))
+	for _, part := range item.Summary {
+		summary = append(summary, responses.ResponseReasoningItemSummaryParam{Text: part.Text})
+	}
+	param := responses.ResponseInputItemParamOfReasoning(item.ID, summary)
+	if item.EncryptedContent != "" && param.OfReasoning != nil {
+		param.OfReasoning.EncryptedContent = openai.Opt(item.EncryptedContent)
+	}
+	return param
+}
+
+func responseReasoningItemToModel(item responses.ResponseOutputItemUnion) model.ReasoningItem {
+	out := model.ReasoningItem{
+		ID:               item.ID,
+		EncryptedContent: item.EncryptedContent,
+	}
+	if len(item.Summary) > 0 {
+		out.Summary = make([]model.ReasoningSummary, 0, len(item.Summary))
+		for _, part := range item.Summary {
+			out.Summary = append(out.Summary, model.ReasoningSummary{Text: part.Text})
+		}
+	}
+	return out
 }
 
 func toModelUsage(usage responses.ResponseUsage) model.TokenUsage {

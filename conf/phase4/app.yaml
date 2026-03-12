@@ -20,14 +20,14 @@ log:
 
 llmProvider:
   model: "gpt-5.4"
-  type: openai_responses
+  type: openai_responses # 可选  type: openai_responses、openai_completions(openai)、gemini(google)
   baseUrl: "${OPENAI_BASE_URL}"
   apiKey: "${OPENAI_API_KEY}" # 可以通过环境变量或其他安全方式提供
   cost:
-    input: 0.625 # USD / 1M input tokens
-    cachedInput: 0.02 # USD / 1M cached input tokens
-    output: 3.75 # USD / 1M output tokens
+    input: 2.5 # USD / 1M input tokens
+    cachedInput: 0.01 # USD / 1M cached input tokens
+    output: 15 # USD / 1M output tokens
   context:
-    max: 128000
-    input: 120000
-    output: 8000
+    max: 1050000
+    input: 922000
+    output: 128000

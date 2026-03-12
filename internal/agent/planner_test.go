@@ -19,7 +19,7 @@ func TestPlanFallsBackToStateTaskWhenMemoryIsMissing(t *testing.T) {
 		LLM:    llm,
 	}
 
-	_, _, err := agent.Plan(context.Background(), &State{Task: "say hello"})
+	_, _, _, err := agent.Plan(context.Background(), &State{Task: "say hello"})
 	if err != nil {
 		t.Fatalf("Plan() error = %v", err)
 	}
@@ -60,7 +60,7 @@ func TestPlanReturnsBudgetExceededWhenUsageCrossesLimit(t *testing.T) {
 		Cost: tracker,
 	}
 
-	_, _, err = agent.Plan(context.Background(), &State{Task: "say hello"})
+	_, _, _, err = agent.Plan(context.Background(), &State{Task: "say hello"})
 	if !errors.Is(err, ErrBudgetExceeded) {
 		t.Fatalf("Plan() error = %v, want ErrBudgetExceeded", err)
 	}

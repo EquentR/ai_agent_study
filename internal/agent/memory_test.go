@@ -84,6 +84,31 @@ func TestMemoryManagerShortTermBufferDeepCopiesToolCallThoughtSignature(t *testi
 	}
 }
 
+func TestMemoryManagerShortTermBufferDeepCopiesReasoningItems(t *testing.T) {
+	mgr, err := NewMemoryManager(MemoryOptions{})
+	if err != nil {
+		t.Fatalf("NewMemoryManager() error = %v", err)
+	}
+
+	mgr.AddMessage(llmModel.Message{
+		Role: llmModel.RoleAssistant,
+		ReasoningItems: []llmModel.ReasoningItem{{
+			ID: "rs_1",
+			Summary: []llmModel.ReasoningSummary{{
+				Text: "plan first",
+			}},
+		}},
+	})
+
+	got := mgr.ShortTermMessages()
+	got[0].ReasoningItems[0].Summary[0].Text = "mutated"
+
+	again := mgr.ShortTermMessages()
+	if again[0].ReasoningItems[0].Summary[0].Text != "plan first" {
+		t.Fatalf("ReasoningItems should be deep-copied, got %#v", again[0].ReasoningItems)
+	}
+}
+
 func TestNewMemoryManagerAutoMigratesLongTermMemorySchema(t *testing.T) {
 	db := newBareTestMemoryDB(t)
 

@@ -71,6 +71,14 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 		t.Fatalf("top_p = %v, want 0.9", got)
 	}
 
+	reasoning, ok := payload["reasoning"].(map[string]any)
+	if !ok {
+		t.Fatalf("reasoning type = %T, want map[string]any", payload["reasoning"])
+	}
+	if reasoning["summary"] != "auto" {
+		t.Fatalf("reasoning.summary = %v, want auto", reasoning["summary"])
+	}
+
 	input, ok := payload["input"].([]any)
 	if !ok {
 		t.Fatalf("input type = %T, want []any", payload["input"])
@@ -135,6 +143,69 @@ func TestBuildResponseRequestParams_MessageAndToolMapping(t *testing.T) {
 	}
 	if toolChoice["type"] != "function" || toolChoice["name"] != "lookup_weather" {
 		t.Fatalf("tool_choice = %#v, want function lookup_weather", toolChoice)
+	}
+}
+
+func TestBuildResponseRequestParams_ReplaysAssistantReasoningItems(t *testing.T) {
+	req := model.ChatRequest{
+		Model: "gpt-5.4",
+		Messages: []model.Message{{
+			Role:      model.RoleAssistant,
+			Reasoning: "plan first",
+			ReasoningItems: []model.ReasoningItem{{
+				ID: "rs_1",
+				Summary: []model.ReasoningSummary{{
+					Text: "plan first",
+				}},
+				EncryptedContent: "enc_123",
+			}},
+			ToolCalls: []types.ToolCall{{
+				ID:        "call_1",
+				Name:      "lookup_weather",
+				Arguments: `{"city":"Beijing"}`,
+			}},
+		}},
+	}
+
+	params, err := buildResponseRequestParams(req)
+	if err != nil {
+		t.Fatalf("buildResponseRequestParams() error = %v", err)
+	}
+
+	var payload map[string]any
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("json.Marshal(params) error = %v", err)
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("json.Unmarshal(payload) error = %v", err)
+	}
+
+	input, ok := payload["input"].([]any)
+	if !ok {
+		t.Fatalf("input type = %T, want []any", payload["input"])
+	}
+	if len(input) != 2 {
+		t.Fatalf("len(input) = %d, want 2", len(input))
+	}
+
+	reasoning, _ := input[0].(map[string]any)
+	if reasoning["type"] != "reasoning" {
+		t.Fatalf("reasoning item type = %v, want reasoning", reasoning["type"])
+	}
+	if reasoning["id"] != "rs_1" {
+		t.Fatalf("reasoning item id = %v, want rs_1", reasoning["id"])
+	}
+	if reasoning["encrypted_content"] != "enc_123" {
+		t.Fatalf("reasoning item encrypted_content = %v, want enc_123", reasoning["encrypted_content"])
+	}
+	summary, ok := reasoning["summary"].([]any)
+	if !ok || len(summary) != 1 {
+		t.Fatalf("reasoning item summary = %#v, want one summary part", reasoning["summary"])
+	}
+	summaryPart, _ := summary[0].(map[string]any)
+	if summaryPart["text"] != "plan first" {
+		t.Fatalf("reasoning summary text = %v, want plan first", summaryPart["text"])
 	}
 }
 
@@ -364,5 +435,43 @@ func TestExtractChatResponse_CollectsReasoningAndStripsLeadingThinkBlock(t *test
 	}
 	if got.Content != "Final answer" {
 		t.Fatalf("content = %q, want %q", got.Content, "Final answer")
+	}
+}
+
+func TestExtractChatResponse_PreservesReasoningItems(t *testing.T) {
+	resp := &responses.Response{
+		Output: []responses.ResponseOutputItemUnion{
+			{
+				Type:             "reasoning",
+				ID:               "rs_1",
+				EncryptedContent: "enc_123",
+				Summary: []responses.ResponseReasoningItemSummary{{
+					Text: "plan first",
+				}},
+			},
+			{
+				Type:      "function_call",
+				CallID:    "call_1",
+				Name:      "lookup_weather",
+				Arguments: `{"city":"Beijing"}`,
+			},
+		},
+	}
+
+	got, err := extractChatResponse(resp)
+	if err != nil {
+		t.Fatalf("extractChatResponse() error = %v", err)
+	}
+	if len(got.ReasoningItems) != 1 {
+		t.Fatalf("len(reasoning items) = %d, want 1", len(got.ReasoningItems))
+	}
+	if got.ReasoningItems[0].ID != "rs_1" {
+		t.Fatalf("reasoning item id = %q, want rs_1", got.ReasoningItems[0].ID)
+	}
+	if got.ReasoningItems[0].EncryptedContent != "enc_123" {
+		t.Fatalf("reasoning item encrypted content = %q, want enc_123", got.ReasoningItems[0].EncryptedContent)
+	}
+	if len(got.ReasoningItems[0].Summary) != 1 || got.ReasoningItems[0].Summary[0].Text != "plan first" {
+		t.Fatalf("reasoning item summary = %#v, want [plan first]", got.ReasoningItems[0].Summary)
 	}
 }

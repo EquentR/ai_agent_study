@@ -15,6 +15,12 @@ const (
 type Message struct {
 	Role    string
 	Content string
+	// Reasoning 保存 provider 单独返回的思考文本；某些后端在后续 tool turn
+	// 需要把这段内容原样回放，才能继续同一条推理链。
+	Reasoning string
+	// ReasoningItems 保存结构化推理片段（如 Responses API 的 reasoning item），
+	// 便于后续请求按 provider 要求回放完整推理状态。
+	ReasoningItems []ReasoningItem
 	// Attachments supports image/text files for multimodal requests.
 	Attachments []Attachment
 
@@ -28,6 +34,16 @@ type Attachment struct {
 	FileName string
 	MimeType string
 	Data     []byte
+}
+
+type ReasoningItem struct {
+	ID               string
+	Summary          []ReasoningSummary
+	EncryptedContent string
+}
+
+type ReasoningSummary struct {
+	Text string
 }
 
 type ChatRequest struct {
@@ -46,8 +62,10 @@ type ChatRequest struct {
 
 type ChatResponse struct {
 	Content string
-	// Reasoning carries model-provided thinking text when the backend can expose it separately.
+	// Reasoning 是后端单独暴露出来的思考文本。
 	Reasoning string
+	// ReasoningItems 是后端返回的结构化推理数据，供上层存档、展示和回放。
+	ReasoningItems []ReasoningItem
 	// ToolCalls carries assistant tool invocation requests in non-stream responses.
 	ToolCalls []types.ToolCall
 

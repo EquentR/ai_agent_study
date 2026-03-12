@@ -5,6 +5,7 @@ import (
 	"agent_study/internal/config"
 	"agent_study/internal/db"
 	"agent_study/internal/log"
+	llmModel "agent_study/pkg/llm_core/model"
 	"agent_study/pkg/tools"
 	"bufio"
 	"context"
@@ -26,6 +27,16 @@ type agentRunner interface {
 
 type stepCallbackSetter interface {
 	SetStepCallback(callback agent.StepCallback)
+}
+
+// modelProvider/costProvider 让 CLI 在不绑定具体 Agent 实现的前提下，
+// 也能展示当前模型名和累计费用。
+type modelProvider interface {
+	ModelName() string
+}
+
+type costProvider interface {
+	TotalCostUSD() float64
 }
 
 func main() {
@@ -109,7 +120,8 @@ func runREPL(ctx context.Context, in io.Reader, out io.Writer, runner agentRunne
 	_, streamingEnabled = runner.(stepCallbackSetter)
 	reader := bufio.NewReader(in)
 	_, _ = fmt.Fprintln(out, "Agent ready. Type your question, or `exit` to quit.")
-
+	_, _ = fmt.Fprintf(out, "Model: %s\n", runnerModelName(runner))
+	_, _ = fmt.Fprintln(out, "----------------------------------------------------------------------------------------")
 	for {
 		_, _ = fmt.Fprint(out, "> ")
 		line, err := reader.ReadString('\n')
@@ -139,6 +151,7 @@ func runREPL(ctx context.Context, in io.Reader, out io.Writer, runner agentRunne
 
 		state, runErr := runner.Run(ctx, input)
 		printRunResult(out, state, runErr, streamingEnabled)
+		_, _ = fmt.Fprintf(out, "Cost: $%.4f\n", runnerTotalCost(runner))
 	}
 }
 
@@ -169,6 +182,9 @@ func printStep(out io.Writer, event agent.StepEvent) {
 	if event.Step.Thought != "" {
 		_, _ = fmt.Fprintf(out, "Thought: %s\n", truncateForTerminal(event.Step.Thought))
 	}
+	if reasoning := formatReasoningItems(event.Step.ReasoningItems); reasoning != "" {
+		_, _ = fmt.Fprintf(out, "%s", reasoning)
+	}
 	_, _ = fmt.Fprintf(out, "Action: %s\n", event.Step.Action.Kind)
 	if len(event.Step.Action.ToolCalls) > 0 {
 		for _, call := range event.Step.Action.ToolCalls {
@@ -178,6 +194,7 @@ func printStep(out io.Writer, event agent.StepEvent) {
 	if event.Step.Observation != "" {
 		_, _ = fmt.Fprintf(out, "Observation: %s\n", truncateForTerminal(event.Step.Observation))
 	}
+	_, _ = fmt.Fprintln(out, "\n----------------------------------------------------------------------------------------")
 }
 
 func truncateForTerminal(content string) string {
@@ -186,4 +203,52 @@ func truncateForTerminal(content string) string {
 		return content
 	}
 	return content[:maxStepOutputChars] + "..."
+}
+
+func formatReasoningItems(items []llmModel.ReasoningItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Responses API 这类后端会返回结构化 reasoning item，
+	// CLI 这里把它们摊平成可读文本，便于调试每一步的思考轨迹。
+	var b strings.Builder
+	for _, item := range items {
+		_, _ = fmt.Fprintf(&b, "Reasoning Item: %s\n", truncateForTerminal(item.ID))
+		if len(item.Summary) > 0 {
+			parts := make([]string, 0, len(item.Summary))
+			for _, summary := range item.Summary {
+				if text := strings.TrimSpace(summary.Text); text != "" {
+					parts = append(parts, text)
+				}
+			}
+			if len(parts) > 0 {
+				_, _ = fmt.Fprintf(&b, "Reasoning Summary: %s\n", truncateForTerminal(strings.Join(parts, " | ")))
+			}
+		}
+		if strings.TrimSpace(item.EncryptedContent) != "" {
+			_, _ = fmt.Fprintf(&b, "Reasoning Encrypted: %s\n", truncateForTerminal(item.EncryptedContent))
+		}
+	}
+	return b.String()
+}
+
+func runnerModelName(runner agentRunner) string {
+	if provider, ok := runner.(modelProvider); ok {
+		return provider.ModelName()
+	}
+	if concrete, ok := runner.(*agent.Agent); ok {
+		return concrete.Model
+	}
+	return ""
+}
+
+func runnerTotalCost(runner agentRunner) float64 {
+	if provider, ok := runner.(costProvider); ok {
+		return provider.TotalCostUSD()
+	}
+	if concrete, ok := runner.(*agent.Agent); ok && concrete.Cost != nil {
+		return concrete.Cost.Totals().Cost.TotalCostUSD
+	}
+	return 0
 }
