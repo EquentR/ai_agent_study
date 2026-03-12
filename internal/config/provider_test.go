@@ -101,6 +101,20 @@ llmProvider:
 	}
 }
 
+func TestBaseProviderSupportsAPIKeyAlias(t *testing.T) {
+	provider := mustLoadLLMProvider(t, `
+llmProvider:
+  model: gpt-5.4
+  type: openai_responses
+  baseUrl: https://example.com/v1
+  apiKey: test-key
+`)
+
+	if provider.AuthKey() != "test-key" {
+		t.Fatalf("provider.AuthKey() = %q, want %q", provider.AuthKey(), "test-key")
+	}
+}
+
 func mustLoadLLMProvider(t *testing.T, raw string) LLMProvider {
 	t.Helper()
 

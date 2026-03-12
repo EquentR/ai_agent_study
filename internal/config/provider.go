@@ -16,6 +16,7 @@ type BaseProvider struct {
 	BaseUrl string `yaml:"baseUrl"`
 	Typ     string `yaml:"type"`
 	Key     string `yaml:"authKey"`
+	APIKey  string `yaml:"apiKey"`
 }
 
 func (p BaseProvider) ModelName() string {
@@ -31,6 +32,12 @@ func (p BaseProvider) Type() string {
 }
 
 func (p BaseProvider) AuthKey() string {
+	if p.Key != "" {
+		return p.Key
+	}
+	if p.APIKey != "" {
+		return p.APIKey
+	}
 	return p.Key
 }
 

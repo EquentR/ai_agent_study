@@ -115,6 +115,8 @@ func newLLMClientFromProvider(provider internalConfig.Provider) (llmModel.LlmCli
 	}
 
 	switch strings.ToLower(strings.TrimSpace(provider.Type())) {
+	case "openai":
+		return openaiClient.NewOpenAiClient(provider.BaseURL(), provider.AuthKey()), nil
 	case "openai_completions":
 		return openaiClient.NewOpenAiClient(provider.BaseURL(), provider.AuthKey()), nil
 	case "openai_responses":
