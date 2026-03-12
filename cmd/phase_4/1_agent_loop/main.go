@@ -18,8 +18,14 @@ import (
 
 const defaultConfigPath = "conf/phase4/app.yaml"
 
+const maxStepOutputChars = 300
+
 type agentRunner interface {
 	Run(ctx context.Context, task string) (*agent.State, error)
+}
+
+type stepCallbackSetter interface {
+	SetStepCallback(callback agent.StepCallback)
 }
 
 func main() {
@@ -94,6 +100,13 @@ func runREPL(ctx context.Context, in io.Reader, out io.Writer, runner agentRunne
 	if runner == nil {
 		return fmt.Errorf("runner is nil")
 	}
+	if setter, ok := runner.(stepCallbackSetter); ok {
+		setter.SetStepCallback(func(event agent.StepEvent) {
+			printStep(out, event)
+		})
+	}
+	streamingEnabled := false
+	_, streamingEnabled = runner.(stepCallbackSetter)
 	reader := bufio.NewReader(in)
 	_, _ = fmt.Fprintln(out, "Agent ready. Type your question, or `exit` to quit.")
 
@@ -110,7 +123,7 @@ func runREPL(ctx context.Context, in io.Reader, out io.Writer, runner agentRunne
 					return nil
 				}
 				state, runErr := runner.Run(ctx, input)
-				printRunResult(out, state, runErr)
+				printRunResult(out, state, runErr, streamingEnabled)
 				return nil
 			}
 			return err
@@ -125,7 +138,7 @@ func runREPL(ctx context.Context, in io.Reader, out io.Writer, runner agentRunne
 		}
 
 		state, runErr := runner.Run(ctx, input)
-		printRunResult(out, state, runErr)
+		printRunResult(out, state, runErr, streamingEnabled)
 	}
 }
 
@@ -138,25 +151,39 @@ func shouldExit(input string) bool {
 	}
 }
 
-func printRunResult(out io.Writer, state *agent.State, err error) {
+func printRunResult(out io.Writer, state *agent.State, err error, stepsAlreadyPrinted bool) {
 	if err != nil {
 		_, _ = fmt.Fprintf(out, "Agent error: %v\n", err)
 		return
 	}
-	for i, step := range state.Steps {
-		_, _ = fmt.Fprintf(out, "Step %d:\n", i+1)
-		if step.Thought != "" {
-			_, _ = fmt.Fprintf(out, "Thought: %s\n", step.Thought)
-		}
-		_, _ = fmt.Fprintf(out, "Action: %s\n", step.Action.Kind)
-		if len(step.Action.ToolCalls) > 0 {
-			for _, call := range step.Action.ToolCalls {
-				_, _ = fmt.Fprintf(out, "Tool: %s %s\n", call.Name, call.Arguments)
-			}
-		}
-		if step.Observation != "" {
-			_, _ = fmt.Fprintf(out, "Observation: %s\n", step.Observation)
+	if !stepsAlreadyPrinted {
+		for i, step := range state.Steps {
+			printStep(out, agent.StepEvent{Index: i + 1, Step: step})
 		}
 	}
 	_, _ = fmt.Fprintf(out, "Final Answer:\n%s\n", strings.TrimSpace(state.FinalAnswer))
+}
+
+func printStep(out io.Writer, event agent.StepEvent) {
+	_, _ = fmt.Fprintf(out, "Step %d:\n", event.Index)
+	if event.Step.Thought != "" {
+		_, _ = fmt.Fprintf(out, "Thought: %s\n", truncateForTerminal(event.Step.Thought))
+	}
+	_, _ = fmt.Fprintf(out, "Action: %s\n", event.Step.Action.Kind)
+	if len(event.Step.Action.ToolCalls) > 0 {
+		for _, call := range event.Step.Action.ToolCalls {
+			_, _ = fmt.Fprintf(out, "Tool: %s %s\n", call.Name, truncateForTerminal(call.Arguments))
+		}
+	}
+	if event.Step.Observation != "" {
+		_, _ = fmt.Fprintf(out, "Observation: %s\n", truncateForTerminal(event.Step.Observation))
+	}
+}
+
+func truncateForTerminal(content string) string {
+	content = strings.TrimSpace(content)
+	if len(content) <= maxStepOutputChars {
+		return content
+	}
+	return content[:maxStepOutputChars] + "..."
 }

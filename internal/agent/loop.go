@@ -55,6 +55,7 @@ func (a *Agent) Run(ctx context.Context, task string) (*State, error) {
 			a.Memory.AddMessage(llmModel.Message{Role: llmModel.RoleAssistant, Content: action.Answer})
 			state.Steps = append(state.Steps, trace)
 			state.StepIndex = len(state.Steps)
+			a.emitStep(StepEvent{Index: state.StepIndex, Step: trace})
 			return state, nil
 		default:
 			return nil, fmt.Errorf("unsupported action kind: %s", action.Kind)
@@ -62,9 +63,17 @@ func (a *Agent) Run(ctx context.Context, task string) (*State, error) {
 
 		state.Steps = append(state.Steps, trace)
 		state.StepIndex = len(state.Steps)
+		a.emitStep(StepEvent{Index: state.StepIndex, Step: trace})
 	}
 
 	return nil, fmt.Errorf("agent stopped after reaching max steps: %d", maxSteps)
+}
+
+func (a *Agent) emitStep(event StepEvent) {
+	if a == nil || a.StepCallback == nil {
+		return
+	}
+	a.StepCallback(event)
 }
 
 func (a *Agent) executeToolCalls(ctx context.Context, calls []toolTypes.ToolCall) (string, error) {

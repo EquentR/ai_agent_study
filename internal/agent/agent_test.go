@@ -114,6 +114,30 @@ func TestNewAgentBuildsMemoryAndCostTrackerFromOptions(t *testing.T) {
 	}
 }
 
+func TestNewAgentAcceptsStepCallback(t *testing.T) {
+	called := false
+	agent, err := NewAgent(NewAgentOptions{
+		LLM: &fakeLlmClient{},
+		StepCallback: func(event StepEvent) {
+			called = true
+			if event.Index != 1 {
+				t.Fatalf("callback index = %d, want 1", event.Index)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if agent.StepCallback == nil {
+		t.Fatal("agent.StepCallback = nil, want configured callback")
+	}
+
+	agent.StepCallback(StepEvent{Index: 1})
+	if !called {
+		t.Fatal("step callback not invoked, want stored callback to run")
+	}
+}
+
 func TestNewAgentPrefersExplicitMemoryAndCostTracker(t *testing.T) {
 	memory, err := NewMemoryManager(MemoryOptions{MaxSummaryChars: 64})
 	if err != nil {

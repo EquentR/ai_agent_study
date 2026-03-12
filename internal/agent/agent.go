@@ -35,6 +35,8 @@ type NewAgentOptions struct {
 	Provider internalConfig.Provider
 	// Config 是可选的 Agent 运行时配置；其中 MaxBudgetUSD 会在自动创建 CostTracker 时复用。
 	Config Config
+	// StepCallback 会在每个 step 完成后被调用，供外部消费实时轨迹。
+	StepCallback StepCallback
 }
 
 // NewAgent 根据显式依赖和可选配置构造一个可运行的 Agent。
@@ -99,13 +101,14 @@ func NewAgent(options NewAgentOptions) (*Agent, error) {
 	}
 
 	return &Agent{
-		System: cloneMessages(options.System),
-		LLM:    llm,
-		Model:  model,
-		Tools:  options.Tools,
-		Memory: memory,
-		Cost:   cost,
-		Config: options.Config,
+		System:       cloneMessages(options.System),
+		LLM:          llm,
+		Model:        model,
+		Tools:        options.Tools,
+		Memory:       memory,
+		Cost:         cost,
+		Config:       options.Config,
+		StepCallback: options.StepCallback,
 	}, nil
 }
 
@@ -126,4 +129,11 @@ func newLLMClientFromProvider(provider internalConfig.Provider) (llmModel.LlmCli
 	default:
 		return nil, fmt.Errorf("unsupported llm provider type: %s", provider.Type())
 	}
+}
+
+func (a *Agent) SetStepCallback(callback StepCallback) {
+	if a == nil {
+		return
+	}
+	a.StepCallback = callback
 }

@@ -10,7 +10,7 @@ sqlite:
     - _txlock=exclusive
 
 log:
-  level: info
+  level: warn
   file: logs/phase4.log
   rotation: true
   maxSize: 100

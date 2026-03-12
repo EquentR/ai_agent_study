@@ -15,16 +15,19 @@ type Config struct {
 	MaxObservation int
 }
 
+type StepCallback func(StepEvent)
+
 // Agent 聚合一次智能体运行所需的系统提示词、模型、工具、记忆和费用控制能力。
 type Agent struct {
 	System []llmModel.Message
 	LLM    llmModel.LlmClient
 	// Model 保存默认模型名，供 Planner 在请求里回填。
-	Model  string
-	Tools  *tools.Registry
-	Memory *MemoryManager
-	Cost   *CostTracker
-	Config Config
+	Model        string
+	Tools        *tools.Registry
+	Memory       *MemoryManager
+	Cost         *CostTracker
+	Config       Config
+	StepCallback StepCallback
 }
 
 type State struct {
@@ -38,6 +41,11 @@ type Step struct {
 	Thought     string
 	Action      Action
 	Observation string
+}
+
+type StepEvent struct {
+	Index int
+	Step  Step
 }
 
 type ActionKind string

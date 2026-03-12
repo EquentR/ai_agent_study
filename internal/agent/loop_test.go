@@ -164,6 +164,78 @@ func TestRunNormalizesMissingToolCallID(t *testing.T) {
 	}
 }
 
+func TestRunInvokesStepCallbackForEachCompletedStep(t *testing.T) {
+	memory, err := NewMemoryManager(MemoryOptions{})
+	if err != nil {
+		t.Fatalf("NewMemoryManager() error = %v", err)
+	}
+
+	registry := tools.NewRegistry()
+	if err := registry.Register(tools.Tool{
+		Name:        "lookup_weather",
+		Description: "lookup weather by city",
+		Parameters:  toolTypes.JSONSchema{Type: "object"},
+		Handler: func(ctx context.Context, arguments map[string]interface{}) (string, error) {
+			return strings.Repeat("x", 16), nil
+		},
+	}); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	llm := &fakeLlmClient{
+		responses: []llmModel.ChatResponse{
+			{
+				Reasoning: "Need the weather tool.",
+				ToolCalls: []toolTypes.ToolCall{{
+					Name:      "lookup_weather",
+					Arguments: `{}`,
+				}},
+			},
+			{Reasoning: "I have enough information now.", Content: "Shanghai is sunny."},
+		},
+	}
+
+	var events []StepEvent
+	agent := &Agent{
+		LLM:    llm,
+		Tools:  registry,
+		Memory: memory,
+		Config: Config{MaxSteps: 4},
+		StepCallback: func(event StepEvent) {
+			events = append(events, event)
+		},
+	}
+
+	state, err := agent.Run(context.Background(), "What is the weather in Shanghai?")
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(state.Steps) != 2 {
+		t.Fatalf("steps = %d, want 2", len(state.Steps))
+	}
+	if len(events) != 2 {
+		t.Fatalf("callback events = %d, want 2", len(events))
+	}
+	if events[0].Index != 1 {
+		t.Fatalf("first callback index = %d, want 1", events[0].Index)
+	}
+	if events[0].Step.Action.Kind != ActionKindToolCalls {
+		t.Fatalf("first callback action = %q, want %q", events[0].Step.Action.Kind, ActionKindToolCalls)
+	}
+	if events[0].Step.Observation == "" {
+		t.Fatal("first callback observation = empty, want tool output")
+	}
+	if events[1].Index != 2 {
+		t.Fatalf("second callback index = %d, want 2", events[1].Index)
+	}
+	if events[1].Step.Action.Kind != ActionKindFinish {
+		t.Fatalf("second callback action = %q, want %q", events[1].Step.Action.Kind, ActionKindFinish)
+	}
+	if events[1].Step.Action.Answer != "Shanghai is sunny." {
+		t.Fatalf("second callback answer = %q, want final answer", events[1].Step.Action.Answer)
+	}
+}
+
 func TestRunReturnsErrorWhenToolArgumentsAreInvalidJSON(t *testing.T) {
 	memory, err := NewMemoryManager(MemoryOptions{})
 	if err != nil {
